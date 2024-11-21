@@ -6,6 +6,11 @@ import hashlib
 import uuid
 import streamlit as st
 import base64
+import psutil
+import time
+import plotly.graph_objects as go
+import pandas as pd
+from collections import defaultdict
 
 
 class PasswordManager:
@@ -26,6 +31,20 @@ class PasswordManager:
                     'total_usage': 0,
                     'last_used': None
                 }
+
+        # Add monitoring metrics to session state
+        if 'monitoring_metrics' not in st.session_state:
+            st.session_state.monitoring_metrics = {
+                'response_times': [],
+                'memory_usage': [],
+                'cpu_usage': [],
+                'timestamps': [],
+                'errors': defaultdict(int)
+            }
+        
+        # Initialize monitoring interval
+        self.monitoring_interval = st.secrets.get("settings", {}).get("monitoring_interval", 60)  # seconds
+        self.last_metrics_update = time.time()
 
     def verify_password(self, password):
         """Verify if password exists and not expired"""
@@ -63,6 +82,13 @@ class PasswordManager:
                 stats['total_usage'] += 1
                 stats['last_used'] = datetime.now().strftime(
                     "%Y-%m-%d %H:%M:%S")
+
+                # Track response time for monitoring
+                if 'monitoring_metrics' in st.session_state:
+                    start_time = time.time()
+                    response_time = time.time() - start_time
+                    st.session_state.monitoring_metrics['response_times'].append(response_time)
+
                 return True
 
         return False
@@ -261,3 +287,73 @@ class PasswordManager:
         except Exception as e:
             st.error(f"Error extending password: {str(e)}")
             return False
+
+    def update_monitoring_metrics(self):
+        """Update system monitoring metrics"""
+        current_time = time.time()
+        
+        # Only update metrics if interval has passed
+        if current_time - self.last_metrics_update >= self.monitoring_interval:
+            metrics = st.session_state.monitoring_metrics
+            
+            # Add current metrics
+            metrics['timestamps'].append(datetime.now())
+            metrics['memory_usage'].append(psutil.Process().memory_info().rss / 1024 / 1024)  # MB
+            metrics['cpu_usage'].append(psutil.cpu_percent())
+            
+            # Keep only last 24 hours of metrics
+            cutoff_time = datetime.now() - timedelta(hours=24)
+            for key in ['timestamps', 'memory_usage', 'cpu_usage', 'response_times']:
+                if len(metrics[key]) > 0:
+                    while metrics['timestamps'][0] < cutoff_time:
+                        metrics[key].pop(0)
+                        if len(metrics['timestamps']) == 0:
+                            break
+            
+            self.last_metrics_update = current_time
+
+    def get_monitoring_dashboard(self):
+        """Generate monitoring dashboard data"""
+        self.update_monitoring_metrics()
+        metrics = st.session_state.monitoring_metrics
+        
+        # Create usage trends chart
+        usage_df = pd.DataFrame({
+            'timestamp': metrics['timestamps'],
+            'memory': metrics['memory_usage'],
+            'cpu': metrics['cpu_usage']
+        })
+        
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(
+            x=usage_df['timestamp'], 
+            y=usage_df['memory'],
+            name='Memory Usage (MB)'
+        ))
+        fig.add_trace(go.Scatter(
+            x=usage_df['timestamp'], 
+            y=usage_df['cpu'],
+            name='CPU Usage (%)'
+        ))
+        
+        fig.update_layout(
+            title='System Resource Usage',
+            xaxis_title='Time',
+            yaxis_title='Usage',
+            height=400
+        )
+        
+        # Calculate summary statistics
+        summary_stats = {
+            'avg_memory': f"{sum(metrics['memory_usage'][-60:]) / len(metrics['memory_usage'][-60:]):.2f} MB" if metrics['memory_usage'] else "N/A",
+            'avg_cpu': f"{sum(metrics['cpu_usage'][-60:]) / len(metrics['cpu_usage'][-60:]):.2f}%" if metrics['cpu_usage'] else "N/A",
+            'error_count': sum(metrics['errors'].values()),
+            'active_users': len([stats for stats in st.session_state.usage_stats.values() if stats['last_used'] and 
+                               datetime.strptime(stats['last_used'], "%Y-%m-%d %H:%M:%S") > datetime.now() - timedelta(hours=1)])
+        }
+        
+        return {
+            'usage_chart': fig,
+            'summary_stats': summary_stats,
+            'error_distribution': dict(metrics['errors'])
+        }
