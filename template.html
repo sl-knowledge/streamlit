@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>Translation Result</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            padding: 2rem;
+            max-width: 800px;
+            margin: 0 auto;
+            color: #333;
+            background: #fff;
+        }
+
+        .translation-block {
+            margin-bottom: 2rem;
+            padding: 1rem;
+            border-radius: 8px;
+            background: rgba(0, 0, 0, 0.03);
+        }
+
+        .sentence-part {
+            margin-bottom: 1rem;
+            padding: 0.5rem;
+        }
+
+        .original {
+            display: flex;
+            align-items: flex-start;
+            font-size: 1.1rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .original-text {
+            flex: 1;
+        }
+
+        .pinyin {
+            color: #666;
+            font-size: 0.9rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .english,
+        .second-language {
+            color: #444;
+            margin-bottom: 0.5rem;
+        }
+
+        .speaker-button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 36px;
+            height: 36px;
+            margin-left: 10px;
+            background-color: #f0f2f5;
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .speaker-button:hover {
+            background-color: #e4e6e9;
+        }
+
+        .speaker-icon {
+            width: 20px;
+            height: 20px;
+            background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%23666"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>');
+            background-repeat: no-repeat;
+            background-position: center;
+            opacity: 0.7;
+        }
+
+        .voice-select-container {
+            margin-bottom: 20px;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        #voiceSelect {
+            margin-left: 10px;
+            padding: 5px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .voice-controls {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            margin-top: 10px;
+        }
+
+        .rate-control {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .rate-slider {
+            width: 150px;
+            height: 4px;
+            -webkit-appearance: none;
+            background: #ddd;
+            border-radius: 2px;
+            outline: none;
+        }
+
+        .rate-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            background: #1E90FF;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        .rate-value {
+            min-width: 40px;
+            text-align: center;
+            font-size: 14px;
+            color: #666;
+        }
+
+        .go-to-top {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            width: 40px;
+            height: 40px;
+            background-color: #1E90FF;
+            border: none;
+            border-radius: 50%;
+            color: white;
+            cursor: pointer;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            transition: background-color 0.2s;
+            z-index: 1000;
+        }
+
+        .go-to-top:hover {
+            background-color: #1C86EE;
+        }
+
+        .go-to-top svg {
+            width: 24px;
+            height: 24px;
+            fill: white;
+        }
+
+        .voice-select-container {
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .sentence-index {
+            display: inline-block;
+            min-width: 24px;
+            margin-right: 8px;
+            color: #666;
+            font-size: 0.9em;
+            text-align: right;
+        }
+    </style>
+    <script>
+        let voices = [];
+        let selectedVoice = null;
+        let speechRate = 1.0;
+
+        function populateVoiceList() {
+            voices = window.speechSynthesis.getVoices();
+            const voiceSelect = document.getElementById('voiceSelect');
+            voiceSelect.innerHTML = '';
+
+            // Find Microsoft Yunjian Online voice
+            const yunjianVoice = voices.find(voice => 
+                voice.name === 'Microsoft Yunjian Online (Natural) - Chinese (Mainland)' && 
+                voice.lang.startsWith('zh')
+            );
+
+            voices.forEach((voice, index) => {
+                if (voice.lang.startsWith('zh')) {
+                    const option = document.createElement('option');
+                    option.textContent = `${voice.name} (${voice.lang})`;
+                    option.value = index;
+                    voiceSelect.appendChild(option);
+
+                    // Select Yunjian voice if available
+                    if (voice === yunjianVoice) {
+                        option.selected = true;
+                        selectedVoice = voice;
+                    }
+                }
+            });
+
+            // If Yunjian voice not found, try other Microsoft voices
+            if (!selectedVoice) {
+                const microsoftVoice = voices.find(voice => 
+                    voice.name.includes('Microsoft') && 
+                    voice.lang.startsWith('zh')
+                );
+                if (microsoftVoice) {
+                    selectedVoice = microsoftVoice;
+                    voiceSelect.value = voices.indexOf(microsoftVoice);
+                } else {
+                    // Fallback to any Chinese voice
+                    const chineseVoice = voices.find(voice => voice.lang.startsWith('zh'));
+                    if (chineseVoice) {
+                        selectedVoice = chineseVoice;
+                        voiceSelect.value = voices.indexOf(chineseVoice);
+                    }
+                }
+            }
+        }
+
+        function speak(text) {
+            if (!selectedVoice) return;
+            window.speechSynthesis.cancel();
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.voice = selectedVoice;
+            utterance.rate = speechRate;
+            utterance.pitch = 1.0;
+            window.speechSynthesis.speak(utterance);
+        }
+
+        function updateRateValue(value) {
+            speechRate = value;
+            document.getElementById('rateValue').textContent = `${value}x`;
+        }
+
+        function toggleGoToTop() {
+            const button = document.querySelector('.go-to-top');
+            if (window.scrollY > 200) {
+                button.style.display = 'flex';
+            } else {
+                button.style.display = 'none';
+            }
+        }
+
+        function scrollToTop() {
+            window.scrollTo({
+                top: 0,
+                behavior: 'smooth'
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', function () {
+            populateVoiceList();
+            if (typeof speechSynthesis !== 'undefined' && speechSynthesis.onvoiceschanged !== undefined) {
+                speechSynthesis.onvoiceschanged = populateVoiceList;
+            }
+
+            document.getElementById('voiceSelect').addEventListener('change', function () {
+                selectedVoice = voices[this.value];
+            });
+
+            // Initialize rate slider
+            const rateSlider = document.getElementById('rateSlider');
+            rateSlider.addEventListener('input', function() {
+                updateRateValue(parseFloat(this.value));
+            });
+
+            // Initialize scroll to top
+            window.addEventListener('scroll', toggleGoToTop);
+            document.querySelector('.go-to-top').addEventListener('click', scrollToTop);
+        });
+
+        // 页面加载时恢复滚动位置
+        document.addEventListener('DOMContentLoaded', function () {
+            let savedPosition = localStorage.getItem('scrollPosition');
+            if (savedPosition) {
+                window.scrollTo(0, parseInt(savedPosition));
+            }
+        });
+
+        // 保存滚动位置
+        window.addEventListener('scroll', function () {
+            localStorage.setItem('scrollPosition', window.scrollY);
+        });
+
+        // 添加快捷键支持
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'r') {
+                localStorage.removeItem('scrollPosition');
+                window.scrollTo(0, 0);
+            }
+        });
+    </script>
+</head>
+
+<body>
+    <div class="voice-select-container">
+        <div>
+            <label for="voiceSelect">Select Voice:</label>
+            <select id="voiceSelect"></select>
+        </div>
+        <div class="voice-controls">
+            <div class="rate-control">
+                <label for="rateSlider">Speed:</label>
+                <input type="range" id="rateSlider" class="rate-slider" 
+                       min="0.5" max="2" step="0.1" value="1.0">
+                <span id="rateValue" class="rate-value">1.0x</span>
+            </div>
+        </div>
+    </div>
+
+    {{content}}
+
+    <button class="go-to-top" title="Go to top">
+        <svg viewBox="0 0 24 24">
+            <path d="M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6z"/>
+        </svg>
+    </button>
+
+    <script>
+        // Modified script to add index numbers
+        document.querySelectorAll('.original').forEach(function (element, index) {
+            // Create index span
+            const indexSpan = document.createElement('span');
+            indexSpan.className = 'sentence-index';
+            indexSpan.textContent = `${index + 1}.`;
+
+            // Create container for original text
+            const textContainer = document.createElement('span');
+            textContainer.className = 'original-text';
+            textContainer.textContent = element.textContent;
+
+            // Create speaker button
+            const button = document.createElement('button');
+            button.className = 'speaker-button';
+            const icon = document.createElement('div');
+            icon.className = 'speaker-icon';
+            button.appendChild(icon);
+            button.onclick = function () {
+                speak(textContainer.textContent);
+            };
+
+            // Clear original content and add new elements
+            element.textContent = '';
+            element.appendChild(indexSpan);
+            element.appendChild(textContainer);
+            element.appendChild(button);
+        });
+    </script>
+</body>
+
+</html>

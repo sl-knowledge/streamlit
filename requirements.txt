@@ -1,0 +1,8 @@
+streamlit
+translators
+pypinyin
+tqdm
+pandas
+reportlab
+certifi
+pymongo[srv] 
