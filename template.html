@@ -175,6 +175,35 @@
             font-size: 0.9em;
             text-align: right;
         }
+
+        .dot-indicator {
+            display: inline-block;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            margin-right: 12px;
+            margin-left: 24px;
+            vertical-align: middle;
+        }
+
+        .pinyin .dot-indicator {
+            background-color: #1E90FF;
+        }
+
+        .english .dot-indicator {
+            background-color: #28a745;
+        }
+
+        .second-language .dot-indicator {
+            background-color: #fd7e14;
+        }
+
+        .pinyin, .english, .second-language {
+            display: flex;
+            align-items: center;
+            margin-bottom: 0.5rem;
+            padding-left: 32px;  /* Align with the Chinese text */
+        }
     </style>
     <script>
         let voices = [];
@@ -297,6 +326,32 @@
             if (e.key === 'r') {
                 localStorage.removeItem('scrollPosition');
                 window.scrollTo(0, 0);
+            }
+        });
+
+        // Modified script to add index numbers and dots
+        document.querySelectorAll('.translation-block').forEach(function (block) {
+            const original = block.querySelector('.original');
+            const pinyin = block.querySelector('.pinyin');
+            const english = block.querySelector('.english');
+            const secondLang = block.querySelector('.second-language');
+
+            if (pinyin) {
+                const dotSpan = document.createElement('span');
+                dotSpan.className = 'dot-indicator';
+                pinyin.insertBefore(dotSpan, pinyin.firstChild);
+            }
+
+            if (english) {
+                const dotSpan = document.createElement('span');
+                dotSpan.className = 'dot-indicator';
+                english.insertBefore(dotSpan, english.firstChild);
+            }
+
+            if (secondLang) {
+                const dotSpan = document.createElement('span');
+                dotSpan.className = 'dot-indicator';
+                secondLang.insertBefore(dotSpan, secondLang.firstChild);
             }
         });
     </script>
