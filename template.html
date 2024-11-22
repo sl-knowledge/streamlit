@@ -299,11 +299,11 @@
             const voiceSelect = document.getElementById('voiceSelect');
             voiceSelect.innerHTML = '';
 
-            // Filter Chinese voices and limit to 10
+            // Filter Chinese voices WITHOUT the 10 voices limit
             const chineseVoices = voices.filter(voice => 
                 voice.lang.startsWith('zh') || 
                 voice.name.includes('Chinese')
-            ).slice(0, 10);
+            );
 
             // Find default voice - first try Natural, then Meijia
             let defaultVoice = chineseVoices.find(voice => 

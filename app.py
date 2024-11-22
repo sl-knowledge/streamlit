@@ -549,7 +549,7 @@ def create_word_tooltip_html(processed_words, target_lang):
     let currentVoice = '';
     let currentSpeed = 1.0;
     
-    // Simple natural voice detection
+    // Check for preferred natural voices
     function isPreferredNaturalVoice(voice) {
         return (
             voice.name.includes('Microsoft') && 
@@ -559,14 +559,11 @@ def create_word_tooltip_html(processed_words, target_lang):
         );
     }
     
-    // Simple Meijia detection
     function isMeijia(voice) {
         return voice.name.includes('Meijia');
     }
     
     function getDefaultVoice(voices) {
-        console.log('All available voices:', voices.map(v => v.name));
-        
         // First try Microsoft natural voices
         const naturalVoice = voices.find(isPreferredNaturalVoice);
         if (naturalVoice) {
@@ -592,10 +589,10 @@ def create_word_tooltip_html(processed_words, target_lang):
         const voiceSelect = document.getElementById('voice-select');
         voiceSelect.innerHTML = '';
         
-        // Filter Chinese voices
+        // Filter Chinese voices WITHOUT the .slice(0, 10) limit
         const chineseVoices = voices.filter(voice => 
-            voice.name.includes('Chinese') && 
-            !voice.name.includes('Cantonese')
+            voice.lang.startsWith('zh') || 
+            voice.name.includes('Chinese')
         );
         
         console.log('Found Chinese voices:', chineseVoices.map(v => v.name));
@@ -632,6 +629,12 @@ def create_word_tooltip_html(processed_words, target_lang):
             console.log('Default voice set to:', currentVoice);
         }
     }
+    
+    if (speechSynthesis.onvoiceschanged !== undefined) {
+        speechSynthesis.onvoiceschanged = populateVoiceList;
+    }
+    
+    populateVoiceList();
     """
     
     return html
