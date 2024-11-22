@@ -542,21 +542,24 @@ def create_word_tooltip_html(processed_words, target_lang):
 def display_interactive_chinese(text, password_manager, target_lang):
     """Display interactive Chinese text with tooltips"""
     try:
-        # 1. 先分词
+        # 1. 先分词并显示进度
+        st.session_state.progress_bar.progress(0)
+        st.session_state.status_text.text("Splitting Chinese text into words...")
         words = list(jieba.cut(text))
         total_words = len(words)
         
-        # 2. 批量处理整句话，而不是一个词一个词处理
-        st.session_state.progress_bar.progress(10)
-        st.session_state.status_text.text("Segmenting text...")
+        # 2. 显示翻译进度
+        st.session_state.progress_bar.progress(20)
+        st.session_state.status_text.text(f"Translating {total_words} words...")
         
         # 3. 一次性处理整个文本
         processed_words = password_manager.process_chinese_text(text, target_lang)
         
-        st.session_state.progress_bar.progress(90)
+        # 4. 显示生成界面的进度
+        st.session_state.progress_bar.progress(80)
         st.session_state.status_text.text("Creating interactive display...")
         
-        # 4. 创建HTML内容
+        # 5. 创建HTML内容
         html_content = create_word_tooltip_html(processed_words, target_lang)
         
         # Show preview
