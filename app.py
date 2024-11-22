@@ -394,9 +394,11 @@ def show_chinese_translation_interface(user_password):
         )
 
     with col2:
+        # Remove Chinese from second language options
+        second_language_options = [lang for lang in languages.keys() if lang != "Chinese"]
         second_language = st.selectbox(
             "Select Second Language (Required)",
-            options=list(languages.keys()),
+            options=second_language_options,
             index=None,
             placeholder="Choose a language..."
         )
@@ -535,9 +537,11 @@ def show_general_translation_interface(user_password):
 
     col1, col2 = st.columns(2)
     with col1:
+        # Remove Chinese from source language options
+        from_language_options = [lang for lang in languages.keys() if lang != "Chinese"]
         from_language = st.selectbox(
             "From Language",
-            options=list(languages.keys()),
+            options=from_language_options,
             index=None,
             placeholder="Select source language..."
         )
