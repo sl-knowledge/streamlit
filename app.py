@@ -467,7 +467,7 @@ def create_word_tooltip_html(processed_words, target_lang):
             """
         html += '</div>'
     
-    # Update JavaScript to populate available voices
+    # Update JavaScript for voice selection with specific Microsoft voice
     html += """
     </div>
     <script>
@@ -491,9 +491,17 @@ def create_word_tooltip_html(processed_words, target_lang):
             voiceSelect.appendChild(option);
         });
         
-        // Set default voice (prefer Microsoft if available)
-        const msVoice = chineseVoices.find(voice => voice.name.includes('Microsoft'));
-        currentVoice = msVoice ? msVoice.name : (chineseVoices[0] ? chineseVoices[0].name : '');
+        // Try to find Microsoft Yunjian specifically
+        const yunJianVoice = chineseVoices.find(voice => 
+            voice.name === 'Microsoft Yunjian Online (Natural) - Chinese (Mainland)'
+        );
+        const meiJiaVoice = chineseVoices.find(voice => voice.name === 'Meijia (zh-TW)');
+        
+        // Set default voice
+        currentVoice = yunJianVoice ? yunJianVoice.name : 
+                      (meiJiaVoice ? meiJiaVoice.name : 
+                      (chineseVoices[0] ? chineseVoices[0].name : ''));
+                      
         if (currentVoice) {
             voiceSelect.value = currentVoice;
         }
