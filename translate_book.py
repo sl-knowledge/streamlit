@@ -95,32 +95,47 @@ def translate_text(text, dest, max_retries=5):
     # 添加调试信息
     print(f"\nTrying to translate: {text[:50]}...")  # 只打印前50个字符
 
-    for provider_name, translate_func in providers.items():
-        retry_count = 0
-        while retry_count < max_retries:
-            try:
-                print(
-                    f"Attempting {provider_name} translation (attempt {retry_count + 1})")
-                time.sleep(random.uniform(2.0, 3.0))
+    # 将长文本分成小段进行翻译
+    batch_size = 5
+    words = text.split()
+    translations = []
+    
+    for i in range(0, len(words), batch_size):
+        batch = ' '.join(words[i:i + batch_size])
+        
+        for provider_name, translate_func in providers.items():
+            retry_count = 0
+            while retry_count < max_retries:
+                try:
+                    print(f"Attempting {provider_name} translation (attempt {retry_count + 1})")
+                    time.sleep(random.uniform(2.0, 3.0))
 
-                translation = translate_func(text, dest)
+                    translation = translate_func(batch, dest)
 
-                if translation and isinstance(translation, str) and len(translation) >= len(text) * 0.3:
-                    print(f"Successfully translated using {provider_name}")
-                    return translation.strip()
-                else:
-                    print(f"{provider_name} returned invalid translation")
+                    if translation and isinstance(translation, str):
+                        translations.append(translation)
+                        break
+                    else:
+                        print(f"{provider_name} returned invalid translation")
 
-            except Exception as e:
-                print(f"{provider_name} failed: {str(e)}")
+                except Exception as e:
+                    print(f"{provider_name} failed: {str(e)}")
+                    retry_count += 1
+                    time.sleep(random.uniform(3.0, 5.0))
+                    continue
+
                 retry_count += 1
-                time.sleep(random.uniform(3.0, 5.0))
-                continue
+            
+            if len(translations) == (i // batch_size + 1):
+                # Successfully translated this batch
+                break
+        
+        if len(translations) != (i // batch_size + 1):
+            # All providers failed for this batch
+            translations.append(f"[Translation failed] {batch}")
 
-            retry_count += 1
-
-    print("All translation providers failed")
-    return f"[Translation failed] {text}"
+    # 合并所有翻译结果
+    return ' '.join(translations)
 
 
 def process_chunk(chunk: str, index: int, executor: ThreadPoolExecutor, include_english: bool, second_language: str, pinyin_style: str = 'tone_marks') -> tuple:

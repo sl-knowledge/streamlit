@@ -380,28 +380,29 @@ class PasswordManager:
                 # Join characters with spaces
                 word_pinyins.append(' '.join(char_pinyins))
             
-            # 3. 将所有词组合成一个文本进行一次性翻译
-            combined_text = ' '.join(words)
-            try:
-                # 一次性翻译整个文本
-                full_translation = tss.translate_text(
-                    combined_text,
-                    translator='bing',
-                    from_language='zh',
-                    to_language=target_lang
-                )
-                
-                # 将翻译结果按词数分割
-                translations = full_translation.split()
-                # 确保翻译结果和词数匹配
-                if len(translations) < len(words):
-                    translations.extend([''] * (len(words) - len(translations)))
-                elif len(translations) > len(words):
-                    translations = translations[:len(words)]
-                    
-            except Exception as e:
-                print(f"Translation error: {str(e)}")
-                translations = [''] * len(words)
+            # 3. 将词分成小组进行翻译，每组5个词
+            translations = []
+            batch_size = 5
+            for i in range(0, len(words), batch_size):
+                batch_words = words[i:i + batch_size]
+                batch_text = ' '.join(batch_words)
+                try:
+                    # 翻译这一批词
+                    batch_translation = tss.translate_text(
+                        batch_text,
+                        translator='bing',
+                        from_language='zh',
+                        to_language=target_lang
+                    )
+                    # 分割翻译结果
+                    batch_translations = batch_translation.split()
+                    # 确保结果数量匹配
+                    while len(batch_translations) < len(batch_words):
+                        batch_translations.append('')
+                    translations.extend(batch_translations[:len(batch_words)])
+                except Exception as e:
+                    print(f"Translation error for batch: {str(e)}")
+                    translations.extend([''] * len(batch_words))
             
             # 4. 组合结果
             processed_words = []
