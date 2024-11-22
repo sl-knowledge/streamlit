@@ -85,11 +85,11 @@ def convert_to_pinyin(text: str, style: str = 'tone_marks') -> str:
         return "[Pinyin Error]"
 
 
-def translate_text(text, dest, max_retries=5):
+def translate_text(text, dest, source='auto', max_retries=5):
     providers = {
-        'google': lambda t, d: tss.google(t, to_language=d),  # 首选 Google
-        'bing': lambda t, d: tss.bing(t, to_language=d),      # 备选 Bing
-        'baidu': lambda t, d: tss.baidu(t, to_language=d)     # 备选 Baidu
+        'google': lambda t, d, s: tss.google(t, to_language=d, from_language=s),
+        'bing': lambda t, d, s: tss.bing(t, to_language=d, from_language=s),
+        'baidu': lambda t, d, s: tss.baidu(t, to_language=d, from_language=s)
     }
 
     # 添加调试信息
@@ -110,7 +110,7 @@ def translate_text(text, dest, max_retries=5):
                     print(f"Attempting {provider_name} translation (attempt {retry_count + 1})")
                     time.sleep(random.uniform(2.0, 3.0))
 
-                    translation = translate_func(batch, dest)
+                    translation = translate_func(batch, dest, source)
 
                     if translation and isinstance(translation, str):
                         translations.append(translation)

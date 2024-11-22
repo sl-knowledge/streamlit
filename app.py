@@ -14,6 +14,7 @@ import jieba
 # Add at the top of app.py, after imports
 languages = {
     "Arabic": "ar",
+    "Chinese": "zh",
     "English": "en",
     "French": "fr",
     "Indonesian": "id",
@@ -26,6 +27,206 @@ languages = {
     "Spanish": "es",
     "Thai": "th",
     "Vietnamese": "vi"
+}
+
+# Add at the top of app.py after languages dictionary
+voice_options = {
+    "zh": {  # Chinese
+        "default": "Microsoft Yunjian Online (Natural) - Chinese (Mainland)",
+        "fallbacks": [
+            "Microsoft Xiaoyi Online (Natural) - Chinese (Mainland)",
+            "Microsoft Xiaoxiao Online (Natural) - Chinese (Mainland)",
+            "Microsoft Yunxi Online (Natural) - Chinese (Mainland)",
+            "Meijia (zh-TW)",
+            "Google 普通话 (中国大陆)",
+            "Chinese Female",
+            "Chinese Male",
+            "Chinese (Hong Kong)",
+            "Chinese (Taiwan)"
+        ]
+    },
+    "en": {  # English
+        "default": "Microsoft Christopher Online (Natural) - English (US)",
+        "fallbacks": [
+            "Microsoft Jenny Online (Natural) - English (US)",
+            "Microsoft Guy Online (Natural) - English (US)",
+            "Microsoft Ana Online (Natural) - English (US)",
+            "Google US English",
+            "Google UK English Female",
+            "Google UK English Male",
+            "English Female",
+            "English Male",
+            "English (UK)"
+        ]
+    },
+    "fr": {  # French
+        "default": "Microsoft Denise Online (Natural) - French",
+        "fallbacks": [
+            "Microsoft Henri Online (Natural) - French",
+            "Microsoft Alain Online (Natural) - French",
+            "Google français",
+            "French Female",
+            "French Male",
+            "French (France)",
+            "French (Belgium)",
+            "French (Switzerland)",
+            "French (Canada)"
+        ]
+    },
+    "es": {  # Spanish
+        "default": "Microsoft Alvaro Online (Natural) - Spanish",
+        "fallbacks": [
+            "Microsoft Elvira Online (Natural) - Spanish",
+            "Microsoft Jorge Online (Natural) - Spanish",
+            "Google español",
+            "Spanish Female",
+            "Spanish Male",
+            "Spanish (Spain)",
+            "Spanish (Mexico)",
+            "Spanish (Argentina)",
+            "Spanish (Colombia)"
+        ]
+    },
+    "ja": {  # Japanese
+        "default": "Microsoft Nanami Online (Natural) - Japanese",
+        "fallbacks": [
+            "Microsoft Keita Online (Natural) - Japanese",
+            "Microsoft Ayumi Online (Natural) - Japanese",
+            "Google 日本語",
+            "Japanese Female",
+            "Japanese Male",
+            "Japanese (Japan)",
+            "Japanese (Standard)",
+            "Japanese (Tokyo)",
+            "Japanese (Kyoto)"
+        ]
+    },
+    "ko": {  # Korean
+        "default": "Microsoft SunHi Online (Natural) - Korean",
+        "fallbacks": [
+            "Microsoft InJoon Online (Natural) - Korean",
+            "Microsoft Cloud Korean",
+            "Google 한국어",
+            "Korean Female",
+            "Korean Male",
+            "Korean (South Korea)",
+            "Korean (Standard)",
+            "Korean (Seoul)",
+            "Korean (Busan)"
+        ]
+    },
+    "ar": {  # Arabic
+        "default": "Microsoft Hamed Online (Natural) - Arabic",
+        "fallbacks": [
+            "Microsoft Fatima Online (Natural) - Arabic",
+            "Microsoft Cloud Arabic",
+            "Google عربي",
+            "Arabic Female",
+            "Arabic Male",
+            "Arabic (Standard)",
+            "Arabic (Gulf)",
+            "Arabic (Egypt)",
+            "Arabic (Morocco)"
+        ]
+    },
+    "ru": {  # Russian
+        "default": "Microsoft Dmitry Online (Natural) - Russian",
+        "fallbacks": [
+            "Microsoft Svetlana Online (Natural) - Russian",
+            "Microsoft Cloud Russian",
+            "Google русский",
+            "Russian Female",
+            "Russian Male",
+            "Russian (Russia)",
+            "Russian (Moscow)",
+            "Russian (Standard)",
+            "Russian (St. Petersburg)"
+        ]
+    },
+    "pt": {  # Portuguese
+        "default": "Microsoft Antonio Online (Natural) - Portuguese",
+        "fallbacks": [
+            "Microsoft Francisca Online (Natural) - Portuguese",
+            "Microsoft Cloud Portuguese",
+            "Google português",
+            "Portuguese Female",
+            "Portuguese Male",
+            "Portuguese (Brazil)",
+            "Portuguese (Portugal)",
+            "Portuguese (Standard)",
+            "Portuguese (Rio)"
+        ]
+    },
+    "th": {  # Thai
+        "default": "Microsoft Premwadee Online (Natural) - Thai",
+        "fallbacks": [
+            "Microsoft Niwat Online (Natural) - Thai",
+            "Microsoft Cloud Thai",
+            "Google ไทย",
+            "Thai Female",
+            "Thai Male",
+            "Thai (Thailand)",
+            "Thai (Standard)",
+            "Thai (Bangkok)",
+            "Thai (Central)"
+        ]
+    },
+    "vi": {  # Vietnamese
+        "default": "Microsoft HoaiMy Online (Natural) - Vietnamese",
+        "fallbacks": [
+            "Microsoft NamMinh Online (Natural) - Vietnamese",
+            "Microsoft Cloud Vietnamese",
+            "Google Tiếng Việt",
+            "Vietnamese Female",
+            "Vietnamese Male",
+            "Vietnamese (Vietnam)",
+            "Vietnamese (Standard)",
+            "Vietnamese (Hanoi)",
+            "Vietnamese (Saigon)"
+        ]
+    },
+    "id": {  # Indonesian
+        "default": "Microsoft Ardi Online (Natural) - Indonesian",
+        "fallbacks": [
+            "Microsoft Gadis Online (Natural) - Indonesian",
+            "Microsoft Cloud Indonesian",
+            "Google Bahasa Indonesia",
+            "Indonesian Female",
+            "Indonesian Male",
+            "Indonesian (Indonesia)",
+            "Indonesian (Standard)",
+            "Indonesian (Jakarta)",
+            "Indonesian (Surabaya)"
+        ]
+    },
+    "it": {  # Italian
+        "default": "Microsoft Diego Online (Natural) - Italian",
+        "fallbacks": [
+            "Microsoft Elsa Online (Natural) - Italian",
+            "Microsoft Cloud Italian",
+            "Google italiano",
+            "Italian Female",
+            "Italian Male",
+            "Italian (Italy)",
+            "Italian (Standard)",
+            "Italian (Rome)",
+            "Italian (Milan)"
+        ]
+    },
+    "fa": {  # Persian
+        "default": "Microsoft Dariush Online (Natural) - Persian",
+        "fallbacks": [
+            "Microsoft Farah Online (Natural) - Persian",
+            "Microsoft Cloud Persian",
+            "Google فارسی",
+            "Persian Female",
+            "Persian Male",
+            "Persian (Iran)",
+            "Persian (Standard)",
+            "Persian (Tehran)",
+            "Persian (Isfahan)"
+        ]
+    }
 }
 
 # Initialize password manager only when needed
@@ -341,9 +542,11 @@ def show_general_translation_interface(user_password):
             placeholder="Select source language..."
         )
     with col2:
+        # Filter out the selected source language from target options
+        to_options = [lang for lang in languages.keys() if lang != from_language]
         to_language = st.selectbox(
             "To Language",
-            options=list(languages.keys()),
+            options=to_options,
             index=None,
             placeholder="Select target language..."
         )
@@ -401,6 +604,86 @@ def show_general_translation_interface(user_password):
                 height=300,
                 key="general_example_text"
             )
+
+    # Translation Button
+    if st.button("Translate", key="general_translate_button"):
+        if not from_language or not to_language:
+            st.error("Please select both source and target languages!")
+            return
+
+        if not text_input.strip():
+            st.error("Please enter or upload some text first!")
+            return
+
+        try:
+            # Create a progress bar
+            progress_bar = st.progress(0)
+            status_text = st.empty()
+
+            with st.spinner("Translating... This may take a few minutes."):
+                if translation_mode == "Interactive Word-by-Word":
+                    # Get the language codes
+                    source_lang = languages[from_language]
+                    target_lang = languages[to_language]
+                    
+                    # Process and display interactive text
+                    processed_words = pm.process_general_text(text_input, source_lang, target_lang)
+                    
+                    # Create HTML content
+                    html_content = create_general_tooltip_html(processed_words)
+                    
+                    # Show preview
+                    components.html(html_content, height=800, scrolling=True)
+                    
+                    # Add download button
+                    st.download_button(
+                        label="Download HTML",
+                        data=html_content,
+                        file_name="translation.html",
+                        mime="text/html"
+                    )
+                    
+                    progress_bar.progress(100)
+                    status_text.text("Translation completed!")
+                    st.success("Translation completed!")
+                    
+                else:
+                    # Standard translation mode
+                    # Save input text
+                    with open("temp_input.txt", "w", encoding="utf-8") as f:
+                        f.write(text_input)
+
+                    # Process standard translation
+                    translate_file(
+                        "temp_input.txt",
+                        progress_callback=lambda p: update_progress(p, progress_bar, status_text),
+                        include_english=False,  # No English for general translation
+                        second_language=languages[to_language],
+                        translation_mode=translation_mode
+                    )
+
+                    # Read the generated HTML
+                    with open("temp_input.html", "r", encoding="utf-8-sig") as f:
+                        html_content = f.read()
+
+                    # Show success and download button
+                    progress_bar.progress(100)
+                    status_text.text("Translation completed!")
+                    st.success("Translation completed!")
+                    st.download_button(
+                        label="Download HTML",
+                        data=html_content,
+                        file_name="translation.html",
+                        mime="text/html"
+                    )
+
+                    # Show preview
+                    st.markdown("### Preview:")
+                    st.components.v1.html(html_content, height=600, scrolling=True)
+
+        except Exception as e:
+            st.error(f"An error occurred: {str(e)}")
+            st.info("Try with a smaller text or try again later.")
 
 
 def update_progress(progress, progress_bar, status_text):
@@ -700,7 +983,73 @@ def create_general_tooltip_html(processed_words):
     """Create HTML with hover tooltips for general language translation"""
     html = """
     <style>
-        /* ... existing styles ... */
+        .word-container {
+            display: inline-block;
+            position: relative;
+            margin: 0 2px;
+            cursor: pointer;
+        }
+        .tooltip {
+            visibility: hidden;
+            background-color: #2c3e50;
+            color: white;
+            text-align: center;
+            padding: 5px;
+            border-radius: 6px;
+            position: absolute;
+            z-index: 1;
+            bottom: 125%;
+            left: 50%;
+            transform: translateX(-50%);
+            white-space: nowrap;
+            font-size: 14px;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .word-container:hover .tooltip {
+            visibility: visible;
+            opacity: 1;
+        }
+        .word {
+            font-size: 18px;
+            color: #e6e6e6;
+        }
+        .word:hover {
+            color: #1a73e8;
+        }
+        .controls-container {
+            position: fixed;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #2d3436;
+            color: #e6e6e6;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+            z-index: 1000;
+            width: 80%;
+            max-width: 600px;
+        }
+        .text-container {
+            margin-top: 250px;
+            padding: 40px 20px;
+            line-height: 2.5;
+            color: #e6e6e6;
+        }
+        .voice-select {
+            width: 100%;
+            padding: 8px;
+            margin: 15px 0;
+            border-radius: 4px;
+            background: #34495e;
+            color: #e6e6e6;
+            border: 1px solid #576574;
+        }
+        .speed-container {
+            margin-top: 20px;
+            margin-bottom: 10px;
+        }
     </style>
     <div class="controls-container">
         <div>Source Language Voice:</div>
@@ -718,8 +1067,20 @@ def create_general_tooltip_html(processed_words):
     <div class="text-container">
     """
     
+    # Add the text content with tooltips
+    for word_data in processed_words:
+        html += f"""
+        <div class="word-container">
+            <span class="word" onclick="playAudio('{word_data['word']}', true)">{word_data['word']}</span>
+            <span class="tooltip">
+                <div style="color: #f8f9fa;">{word_data['translation']}</div>
+            </span>
+        </div>
+        """
+    
     # Add JavaScript for voice handling
     html += """
+    </div>
     <script>
     let currentSourceVoice = '';
     let currentTargetVoice = '';
@@ -730,21 +1091,17 @@ def create_general_tooltip_html(processed_words):
         const sourceSelect = document.getElementById('source-voice-select');
         const targetSelect = document.getElementById('target-voice-select');
         
-        // Clear existing options
         sourceSelect.innerHTML = '';
         targetSelect.innerHTML = '';
         
-        // Filter voices by source language
         const sourceLangVoices = voices.filter(voice => 
             voice.lang.startsWith('""" + processed_words[0]['source_lang'] + """')
         );
         
-        // Filter voices by target language
         const targetLangVoices = voices.filter(voice => 
             voice.lang.startsWith('""" + processed_words[0]['target_lang'] + """')
         );
         
-        // Add voices to selects
         sourceLangVoices.forEach(voice => {
             const option = document.createElement('option');
             option.value = voice.name;
@@ -759,7 +1116,6 @@ def create_general_tooltip_html(processed_words):
             targetSelect.appendChild(option);
         });
         
-        // Set default voices
         if (sourceLangVoices.length > 0) {
             currentSourceVoice = sourceLangVoices[0].name;
             sourceSelect.value = currentSourceVoice;
@@ -800,7 +1156,6 @@ def create_general_tooltip_html(processed_words):
         window.speechSynthesis.speak(utterance);
     }
     
-    // Initialize voices when they're loaded
     if (speechSynthesis.onvoiceschanged !== undefined) {
         speechSynthesis.onvoiceschanged = populateVoiceList;
     }
