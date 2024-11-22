@@ -416,7 +416,7 @@ def create_word_tooltip_html(processed_words, target_lang):
             left: 50%;
             transform: translateX(-50%);
             background: #f8f9fa;
-            padding: 20px;
+            padding: 30px;
             border-radius: 8px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
             z-index: 1000;
@@ -424,28 +424,29 @@ def create_word_tooltip_html(processed_words, target_lang):
             max-width: 600px;
         }
         .text-container {
-            margin-top: 200px;  /* Increased padding from 150px to 200px */
+            margin-top: 250px;
             padding: 20px;
             line-height: 2.5;
         }
         .voice-select {
             width: 100%;
             padding: 8px;
-            margin: 10px 0;
+            margin: 15px 0;
             border-radius: 4px;
         }
         .speed-container {
-            margin-top: 15px;
+            margin-top: 20px;
+            margin-bottom: 10px;
         }
     </style>
     <div class="controls-container">
         <div>Select Voice:</div>
         <select class="voice-select" id="voice-select" onchange="updateVoice(this.value)">
-            <option value="Microsoft Yunjian Online (Natural) - Chinese (Mainland) (zh-CN)">Microsoft Yunjian Online (Natural) - Chinese (Mainland)</option>
-            <option value="Microsoft Xiaoyi Online (Natural) - Chinese (Mainland) (zh-CN)">Microsoft Xiaoyi Online (Natural) - Chinese (Mainland)</option>
-            <option value="Microsoft Xiaoxiao Online (Natural) - Chinese (Mainland) (zh-CN)">Microsoft Xiaoxiao Online (Natural) - Chinese (Mainland)</option>
-            <option value="Microsoft Yunxia Online (Natural) - Chinese (Mainland) (zh-CN)">Microsoft Yunxia Online (Natural) - Chinese (Mainland)</option>
-            <option value="Microsoft Yunxi Online (Natural) - Chinese (Mainland) (zh-CN)">Microsoft Yunxi Online (Natural) - Chinese (Mainland)</option>
+            <option value="Microsoft Yunjian Online (Natural) - Chinese (Mainland)">Microsoft Yunjian Online (Natural) - Chinese (Mainland)</option>
+            <option value="Microsoft Xiaoyi Online (Natural) - Chinese (Mainland)">Microsoft Xiaoyi Online (Natural) - Chinese (Mainland)</option>
+            <option value="Microsoft Xiaoxiao Online (Natural) - Chinese (Mainland)">Microsoft Xiaoxiao Online (Natural) - Chinese (Mainland)</option>
+            <option value="Microsoft Yunxia Online (Natural) - Chinese (Mainland)">Microsoft Yunxia Online (Natural) - Chinese (Mainland)</option>
+            <option value="Microsoft Yunxi Online (Natural) - Chinese (Mainland)">Microsoft Yunxi Online (Natural) - Chinese (Mainland)</option>
         </select>
         <div class="speed-container">
             <span>Speed:</span>
@@ -466,7 +467,7 @@ def create_word_tooltip_html(processed_words, target_lang):
     for word_data in processed_words:
         html += f"""
         <div class="word-container">
-            <span class="chinese-word" onclick="speak('{word_data['word']}')">{word_data['word']}</span>
+            <span class="chinese-word" onclick="playAudio('{word_data['word']}')">{word_data['word']}</span>
             <span class="tooltip">
                 {word_data['pinyin']}<br>
                 {word_data['translation']}
@@ -478,7 +479,7 @@ def create_word_tooltip_html(processed_words, target_lang):
     html += """
     </div>
     <script>
-    let currentVoice = 'Microsoft Yunjian Online (Natural) - Chinese (Mainland) (zh-CN)';
+    let currentVoice = 'Microsoft Yunjian Online (Natural) - Chinese (Mainland)';
     let currentSpeed = 1.0;
     
     function updateVoice(voice) {
@@ -490,11 +491,30 @@ def create_word_tooltip_html(processed_words, target_lang):
         document.getElementById('speed-value').textContent = speed + 'x';
     }
     
-    function speak(text) {
+    function playAudio(text) {
         const utterance = new SpeechSynthesisUtterance(text);
         utterance.lang = 'zh-CN';
         utterance.rate = currentSpeed;
-        speechSynthesis.speak(utterance);
+        
+        // Get available voices and find the selected one
+        const voices = window.speechSynthesis.getVoices();
+        const selectedVoice = voices.find(voice => voice.name === currentVoice);
+        if (selectedVoice) {
+            utterance.voice = selectedVoice;
+        }
+        
+        window.speechSynthesis.speak(utterance);
+    }
+    
+    // Initialize voices when they're loaded
+    if (speechSynthesis.onvoiceschanged !== undefined) {
+        speechSynthesis.onvoiceschanged = function() {
+            const voices = window.speechSynthesis.getVoices();
+            const chineseVoice = voices.find(voice => voice.name === currentVoice);
+            if (chineseVoice) {
+                currentVoice = chineseVoice.name;
+            }
+        };
     }
     </script>
     """
