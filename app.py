@@ -141,11 +141,23 @@ def show_user_interface(user_password=None):
 
     # Translation Settings
     st.header("Translation Settings")
+    
+    # Add translation mode selection
+    st.subheader("Choose Translation Mode")
+    translation_mode = st.radio(
+        "",
+        ["Standard Translation", "Interactive Word-by-Word"],
+        help="Standard Translation: Full sentence translation with pinyin\nInteractive Word-by-Word: Click on individual words to see translations and hear pronunciation"
+    )
+
     col1, col2, col3 = st.columns([1, 2, 1])
 
     with col1:
         include_english = st.checkbox(
-            "Include English Translation", value=True)
+            "Include English Translation", 
+            value=True,
+            help="Include English translation alongside the second language"
+        )
 
     with col2:
         languages = {
@@ -229,7 +241,7 @@ def show_user_interface(user_password=None):
 张艺谋执导的《第二十条》获最佳故事片奖，陈凯歌凭借《志愿军：雄兵出击》获得最佳导演，雷佳音、李庚希分别凭借《第二十条》和《我们一起摇太阳》获得最佳男女主角奖[6]，李庚希亦成为中国电影金鸡奖的第一位"00后"影后[7]。
 
 概要
-中国电影家协会于2024年7月4日宣布该届颁礼评选工作开始，参评对象为2023年7月1日至2024年6月30日期间取得国家电影局核发的电影公映许可证的影片[8]，设有最佳故事片、评委会特别奖、最佳中小成本故事片及专业奖项共20个，共有251部影片报名参选。评选和终评三阶段，按种分为故事片、纪／科教片、美术片、戏曲片共4个评委会，评委会成员实名投票产生各奖项提名名单，金鸡百花电影节举行期间进行终评决定最终
+中国电影家协会于2024年7月4日宣布该届颁礼评选工作开始，参评对象为2023年7月1日至2024年6月30日期间取得国家电影局核发���电影公映许可证的影片[8]，设有最佳故事片、评委会特别奖、最佳中小成本故事片及专业奖项共20个，共有251部影片报名参选。评选和终评三阶段，按种分为故事片、纪／科教片、美术片、戏曲片共4个评委会，评委会成员实名投票产生各奖项提名名单，金鸡百花电影节举行期间进行终评决定最终
 
 云南地处中国西南，位于北纬21°8'32"－29°15'8"和东经97°31'39"－106°11'47"之间，全境东西最大横距864.9公里，南北最大纵距900公里，总面积39.4万平方千米，占中国国土面积的4.1%，居第8位。最低处位于河口县城西南，南溪河与红河交汇，高程为海拔76.4米，为云南最低处[22]；最高处位于德钦县的梅里雪山主峰卡瓦格博峰，海拔6,740米，为云南最高点[23]。云南全境，东与贵州、广西接壤，北与四川毗邻，西北与西藏交界，西与缅甸为邻，南同老挝、越南毗连。云南有长达4,060公里国境线，是中国连接东南亚各国的陆路通道，全省有出境公路20多条。北回归线穿越全境，全省分属热带、亚热带气候，兼具低纬气候、季风气候、山原气候的特点[24]。
 
@@ -277,7 +289,8 @@ def show_user_interface(user_password=None):
                         p, progress_bar, status_text),
                     include_english=include_english,
                     second_language=languages[second_language],
-                    pinyin_style=pinyin_style
+                    pinyin_style=pinyin_style,
+                    translation_mode=translation_mode
                 )
 
                 # Read the generated HTML

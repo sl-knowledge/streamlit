@@ -204,6 +204,55 @@
             margin-bottom: 0.5rem;
             padding-left: 32px;  /* Align with the Chinese text */
         }
+
+        .interactive-text {
+            line-height: 2.5;
+            padding: 20px 0;  /* Added padding for better visibility */
+        }
+
+        .interactive-word {
+            display: inline-block;
+            padding: 2px 4px;
+            margin: 0 2px;
+            border-radius: 3px;
+            cursor: pointer;
+            position: relative;
+            transition: background-color 0.2s;
+        }
+
+        .interactive-word:hover {
+            background-color: rgba(30, 144, 255, 0.1);
+        }
+
+        .interactive-word:hover::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 8px;
+            background-color: white;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            white-space: pre-line;
+            z-index: 1000;
+            min-width: 150px;
+            text-align: center;
+            font-size: 14px;
+            margin-bottom: 5px;
+            pointer-events: none;
+        }
+
+        .non-chinese {
+            display: inline-block;
+            padding: 0 2px;
+        }
+
+        .sentence-part.interactive {
+            position: relative;
+            margin: 20px 0;
+        }
     </style>
     <script>
         let voices = [];
@@ -354,6 +403,17 @@
                 secondLang.insertBefore(dotSpan, secondLang.firstChild);
             }
         });
+
+        // Add to existing script
+        function speakWord(text) {
+            if (!selectedVoice) return;
+            window.speechSynthesis.cancel();
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.voice = selectedVoice;
+            utterance.rate = speechRate;
+            utterance.pitch = 1.0;
+            window.speechSynthesis.speak(utterance);
+        }
     </script>
 </head>
 

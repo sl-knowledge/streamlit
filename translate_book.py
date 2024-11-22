@@ -9,6 +9,7 @@ from tqdm import tqdm
 import sys
 import time
 import random
+import jieba
 
 
 def split_sentence(text: str) -> List[str]:
@@ -249,83 +250,133 @@ def process_text(file_path, include_english=True, second_language="vi", pinyin_s
     return html_content
 
 
-def translate_file(input_file: str, progress_callback=None, include_english=True, second_language="vi", pinyin_style='tone_marks'):
+def process_interactive_chunk(chunk: str, index: int, executor: ThreadPoolExecutor, include_english: bool, second_language: str, pinyin_style: str = 'tone_marks') -> tuple:
+    """Process chunk for interactive word-by-word translation"""
+    try:
+        # 1. 先获取整句翻译，保持上下文
+        full_translations = []
+        if include_english:
+            full_eng = translate_text(chunk, 'en')
+            full_translations.append(full_eng)
+        full_second = translate_text(chunk, second_language)
+        full_translations.append(full_second)
+
+        # 2. 使用jieba进行分词
+        words = list(jieba.cut(chunk))
+        
+        # 3. 处理每个词
+        word_data = []
+        for word in words:
+            if any('\u4e00' <= char <= '\u9fff' for char in word):
+                # 获取拼音
+                pinyin = convert_to_pinyin(word, pinyin_style)
+                
+                # 所有词都使用整句翻译的上下文，避免重复翻译
+                word_data.append({
+                    'word': word,
+                    'pinyin': pinyin,
+                    'translations': full_translations
+                })
+            else:
+                # 非中文字符处理
+                word_data.append({
+                    'word': word,
+                    'pinyin': '',
+                    'translations': []
+                })
+
+        return (index, chunk, word_data)
+
+    except Exception as e:
+        print(f"\nError processing interactive chunk {index}: {e}")
+        return (index, chunk, [])
+
+def create_interactive_html_block(results: tuple, include_english: bool) -> str:
+    """Create HTML for interactive word-by-word translation"""
+    chunk, word_data = results
+    words_html = []
+    
+    # 获取整句的翻译，用于显示在底部
+    sentence_translations = []
+    for data in word_data:
+        if data['translations']:
+            sentence_translations = data['translations']
+            break
+    
+    # 处理每个词的HTML
+    for data in word_data:
+        if data['translations']:
+            # 转义特殊字符
+            translations_escaped = [t.replace('"', '&quot;').replace("'", "&#39;") for t in data['translations']]
+            tooltip_content = f"{data['pinyin']}"
+            if include_english:
+                tooltip_content += f"\nEnglish: {translations_escaped[0]}"
+            tooltip_content += f"\n{translations_escaped[-1]}"
+            
+            # 创建可交互的词
+            word_html = f'''
+                <span class="interactive-word" 
+                      data-tooltip="{tooltip_content}"
+                      onclick="speakWord(this.textContent)">
+                    {data['word']}
+                </span>'''
+            words_html.append(word_html)
+        else:
+            # 处理非中文字符
+            words_html.append(f'<span class="non-chinese">{data["word"]}</span>')
+
+    # 构建完整的HTML块
+    html = f'''
+        <div class="translation-block">
+            <div class="sentence-part interactive">
+                <div class="original interactive-text">
+                    <span class="sentence-index"></span>
+                    <span class="original-text">{''.join(words_html)}</span>
+                    <button class="speaker-button" onclick="speak(this.previousElementSibling.textContent)">
+                        <div class="speaker-icon"></div>
+                    </button>
+                </div>
+            </div>
+        </div>
+    '''
+    
+    return html
+
+def translate_file(input_file: str, progress_callback=None, include_english=True, second_language="vi", pinyin_style='tone_marks', translation_mode="Standard Translation"):
     """
     Translate file with progress updates, language options and pinyin style
-    pinyin_style: 'tone_marks' or 'tone_numbers'
     """
     print(f"Starting translation of {input_file}")
-    print(f"Pinyin style: {pinyin_style}")
+    print(f"Translation mode: {translation_mode}")
 
     try:
-        # Count total chunks first for progress calculation
-        print("\nCounting total chunks...")
         with open(input_file, 'r', encoding='utf-8') as file:
-            total_chunks = sum(len(split_sentence(line.strip()))
-                               for line in file if line.strip())
-
-        print(f"Found {total_chunks} chunks to process")
-
-        with open(input_file, 'r', encoding='utf-8') as file:
-            lines = file.readlines()
+            text = file.read().strip()
 
         with open('template.html', 'r', encoding='utf-8') as template_file:
             html_content = template_file.read()
 
         translation_content = ''
-        global_index = 0
-        chunks_processed = 0
 
-        max_workers = 3
-        all_results = []
+        if translation_mode == "Interactive Word-by-Word":
+            # 直接处理整个文本
+            result = process_interactive_chunk(
+                text, 0, None, include_english, second_language, pinyin_style
+            )
+            _, _, word_data = result
+            translation_content = create_interactive_html_block(
+                (text, word_data), include_english)
+        else:
+            # 使用原有的标准翻译模式
+            chunks = split_sentence(text)
+            total_chunks = len(chunks)
+            chunks_processed = 0
 
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            futures = []
-
-            for line_idx, line in enumerate(lines):
-                if line.strip():
-                    chunks = split_sentence(line.strip())
-                    for chunk_idx, chunk in enumerate(chunks):
-                        future = executor.submit(
-                            process_chunk,
-                            chunk,
-                            global_index,
-                            executor,
-                            include_english,
-                            second_language,
-                            pinyin_style
-                        )
-                        futures.append(
-                            (global_index, line_idx, chunk_idx, future))
-                        global_index += 1
-
-            for global_idx, line_idx, chunk_idx, future in futures:
-                try:
-                    result = future.result(timeout=60)
-                    all_results.append((line_idx, chunk_idx, result))
-                    chunks_processed += 1
-
-                    # Update progress if callback provided
-                    if progress_callback:
-                        progress = (chunks_processed / total_chunks) * 100
-                        progress_callback(progress)
-
-                except Exception as e:
-                    print(f"\nError getting result: {e}")
-                    continue
-
-        all_results.sort(key=lambda x: (x[0], x[1]))
-
-        current_line = -1
-        for line_idx, chunk_idx, result in all_results:
-            if line_idx != current_line:
-                if current_line != -1:
-                    translation_content += '</div>'
-                translation_content += '<div class="translation-block">'
-                current_line = line_idx
-
-            # Handle result unpacking more safely
-            try:
+            for chunk in chunks:
+                result = process_chunk(
+                    chunk, chunks_processed, None, 
+                    include_english, second_language, pinyin_style
+                )
                 if include_english:
                     _, chunk, pinyin, english, second = result
                     translation_content += create_html_block(
@@ -334,29 +385,18 @@ def translate_file(input_file: str, progress_callback=None, include_english=True
                     _, chunk, pinyin, second = result
                     translation_content += create_html_block(
                         (chunk, pinyin, second), include_english=False)
-            except ValueError as e:
-                print(f"Error unpacking result: {e}")
-                # Create error block
-                translation_content += create_html_block(
-                    (chunk, "[Pinyin Error]",
-                     "[Translation Error]", "[Translation Error]"),
-                    include_english=include_english
-                )
-
-        if all_results:
-            translation_content += '</div>'
+                
+                chunks_processed += 1
+                if progress_callback:
+                    progress = (chunks_processed / total_chunks) * 100
+                    progress_callback(progress)
 
         html_content = html_content.replace('{{content}}', translation_content)
-
-        base_name = os.path.splitext(input_file)[0]
-        output_file = f"{base_name}.html"
-        print(f"\nSaving output to {output_file}")
-
-        # Explicitly specify UTF-8 encoding with BOM for better mobile compatibility
+        output_file = f"{os.path.splitext(input_file)[0]}.html"
+        
         with open(output_file, 'w', encoding='utf-8-sig') as file:
             file.write(html_content)
 
-        # Final progress update
         if progress_callback:
             progress_callback(100)
 
@@ -365,7 +405,6 @@ def translate_file(input_file: str, progress_callback=None, include_english=True
     except Exception as e:
         print(f"Translation error: {str(e)}")
         raise
-
 
 def main():
     """Main entry point for command line usage"""
