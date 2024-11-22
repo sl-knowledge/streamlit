@@ -384,17 +384,18 @@ class PasswordManager:
             word_translations = []
             for word in words:
                 try:
-                    # Add debug print
-                    print(f"Translating word: {word}")
-                    
                     # Use translation service with specified target language
-                    trans = tss.bing(word, from_language="zh", to_language=target_lang, timeout=10)  # Added timeout
-                    print(f"Translation result: {trans}")  # Debug print
-                    
-                    word_translations.append(trans if trans else word)  # Fallback to original word if translation fails
+                    # Force translate from Chinese to target language
+                    trans = tss.translate_text(
+                        word, 
+                        translator='bing',
+                        from_language='zh',
+                        to_language=target_lang
+                    )
+                    word_translations.append(trans)
                 except Exception as e:
                     print(f"Translation error for word '{word}': {str(e)}")
-                    word_translations.append(word)  # Use original word instead of empty string
+                    word_translations.append("")  # Empty string if translation fails
             
             # Combine the results
             processed_words = []
@@ -409,6 +410,6 @@ class PasswordManager:
             return processed_words
             
         except Exception as e:
-            print(f"Error in process_chinese_text: {str(e)}")  # Debug print
+            print(f"Error in process_chinese_text: {str(e)}")
             st.error(f"Error processing text: {str(e)}")
             return []
