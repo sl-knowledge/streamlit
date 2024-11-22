@@ -420,3 +420,50 @@ class PasswordManager:
             print(f"Error in process_chinese_text: {str(e)}")
             st.error(f"Error processing text: {str(e)}")
             return []
+
+    def process_general_text(self, text, from_lang, to_lang):
+        """Process text for word-by-word translation between any languages"""
+        try:
+            import translators.server as tss
+            
+            # 1. Split text into words (using basic space splitting for non-Chinese)
+            words = text.split()
+            
+            # 2. Batch translation
+            translations = []
+            batch_size = 5
+            for i in range(0, len(words), batch_size):
+                batch_words = words[i:i + batch_size]
+                batch_text = ' '.join(batch_words)
+                try:
+                    batch_translation = tss.translate_text(
+                        batch_text,
+                        translator='bing',
+                        from_language=from_lang,
+                        to_language=to_lang
+                    )
+                    batch_translations = batch_translation.split()
+                    while len(batch_translations) < len(batch_words):
+                        batch_translations.append('')
+                    translations.extend(batch_translations[:len(batch_words)])
+                except Exception as e:
+                    print(f"Translation error for batch: {str(e)}")
+                    translations.extend([''] * len(batch_words))
+            
+            # 3. Combine results
+            processed_words = []
+            for i, word in enumerate(words):
+                processed_words.append({
+                    'word': word,
+                    'translation': translations[i] if i < len(translations) else '',
+                    'audio_url': f"/audio/{word}",
+                    'source_lang': from_lang,  # Add source language for voice selection
+                    'target_lang': to_lang     # Add target language for voice selection
+                })
+                
+            return processed_words
+            
+        except Exception as e:
+            print(f"Error in process_general_text: {str(e)}")
+            st.error(f"Error processing text: {str(e)}")
+            return []

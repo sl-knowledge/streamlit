@@ -11,6 +11,23 @@ from reportlab.pdfbase.ttfonts import TTFont
 import streamlit.components.v1 as components
 import jieba
 
+# Add at the top of app.py, after imports
+languages = {
+    "Arabic": "ar",
+    "English": "en",
+    "French": "fr",
+    "Indonesian": "id",
+    "Italian": "it",
+    "Japanese": "ja",
+    "Korean": "ko",
+    "Persian": "fa",
+    "Portuguese": "pt",
+    "Russian": "ru",
+    "Spanish": "es",
+    "Thai": "th",
+    "Vietnamese": "vi"
+}
+
 # Initialize password manager only when needed
 pm = None
 
@@ -141,7 +158,21 @@ def show_user_interface(user_password=None):
         with col3:
             st.metric("Total Usage", stats['total_usage'])
 
-    # Translation Settings
+    # Add language section selection
+    section = st.sidebar.radio(
+        "Translation Section",
+        ["Chinese Translation", "General Translation"],
+        help="Chinese Translation: Includes pinyin and Chinese-specific features\nGeneral Translation: Support translation between any languages"
+    )
+
+    if section == "Chinese Translation":
+        show_chinese_translation_interface(user_password)
+    else:
+        show_general_translation_interface(user_password)
+
+
+def show_chinese_translation_interface(user_password):
+    """Original Chinese translation interface"""
     st.header("Translation Settings")
     
     # Add translation mode selection
@@ -162,22 +193,6 @@ def show_user_interface(user_password=None):
         )
 
     with col2:
-        languages = {
-            "Arabic": "ar",
-            "English": "en",
-            "French": "fr",
-            "Indonesian": "id",
-            "Italian": "it",
-            "Japanese": "ja",
-            "Korean": "ko",
-            "Persian": "fa",
-            "Portuguese": "pt",
-            "Russian": "ru",
-            "Spanish": "es",
-            "Thai": "th",
-            "Vietnamese": "vi"
-        }
-
         second_language = st.selectbox(
             "Select Second Language (Required)",
             options=list(languages.keys()),
@@ -205,10 +220,8 @@ def show_user_interface(user_password=None):
     text_input = ""
 
     if input_method == "Paste Text":
-        # Create a container for text input
         text_container = st.container()
         with text_container:
-            # Simple text area with reduced height from 800 to 500
             text_input = st.text_area(
                 "Paste Chinese text here",
                 value="",
@@ -227,7 +240,6 @@ def show_user_interface(user_password=None):
         if uploaded_file:
             try:
                 text_input = uploaded_file.getvalue().decode('utf-8')
-                # Show the uploaded text in a text area that can be edited
                 text_input = st.text_area(
                     "Edit uploaded text if needed:",
                     value=text_input,
@@ -238,10 +250,7 @@ def show_user_interface(user_password=None):
                 st.error(f"Error reading file: {str(e)}")
 
     else:  # Try Example
-        example_text = """第37届中国电影金鸡奖是2024年11月16日在中国厦门举行的中国电影颁奖礼[2]，该届颁奖礼由中国文学艺术界联合会、中国电影家协会与厦门市人民政府共同主办。2024年10月27日公布评委会提名名单[3][4]，颁奖典礼主持人由电影频道主持人蓝羽与演员佟大为担任[5]。
-
-张艺谋执导的《第二十条》获最佳故事片奖，陈凯歌凭借《志愿军：雄兵出击》获得最佳导演，雷佳音、李庚希分别凭借《第二十条》和《我们一起摇太阳》获得最佳男女主角奖[6]，李庚希亦成为中国电影金鸡奖的第一位"00后"影后[7]。
-"""
+        example_text = """第37届中国电影金鸡奖是2024年11月16日在中国厦门举行的中国电影颁奖礼[2]，该届颁奖礼由中国文学艺术界联合会、中国电影家协会与厦门市人民政府共同主办。2024年10月27日公布评委会提名名单[3][4]，颁奖典礼主持人由电影频道主持人蓝羽与演员佟大为担任[5]。"""
         text_input = st.text_area(
             "Example text (you can edit):",
             value=example_text,
@@ -260,9 +269,9 @@ def show_user_interface(user_password=None):
             return
 
         try:
-            # Create a progress bar and store in session state
-            st.session_state.progress_bar = st.progress(0)
-            st.session_state.status_text = st.empty()
+            # Create a progress bar
+            progress_bar = st.progress(0)
+            status_text = st.empty()
 
             with st.spinner("Translating... This may take a few minutes."):
                 # Save input text
@@ -276,13 +285,122 @@ def show_user_interface(user_password=None):
                     # Process and display interactive text
                     display_interactive_chinese(text_input, pm, target_lang)
                     
-                    st.session_state.progress_bar.progress(100)
-                    st.session_state.status_text.text("Translation completed!")
+                else:
+                    # Process standard translation
+                    translate_file(
+                        "temp_input.txt",
+                        progress_callback=lambda p: update_progress(p, progress_bar, status_text),
+                        include_english=include_english,
+                        second_language=languages[second_language],
+                        pinyin_style=pinyin_style,
+                        translation_mode=translation_mode
+                    )
+
+                    # Read the generated HTML
+                    with open("temp_input.html", "r", encoding="utf-8-sig") as f:
+                        html_content = f.read()
+
+                    # Show success and download button
+                    progress_bar.progress(100)
+                    status_text.text("Translation completed!")
                     st.success("Translation completed!")
-                    
+                    st.download_button(
+                        label="Download HTML",
+                        data=html_content,
+                        file_name="translation.html",
+                        mime="text/html"
+                    )
+
+                    # Show preview
+                    st.markdown("### Preview:")
+                    st.components.v1.html(html_content, height=600, scrolling=True)
+
         except Exception as e:
             st.error(f"An error occurred: {str(e)}")
             st.info("Try with a smaller text or try again later.")
+
+
+def show_general_translation_interface(user_password):
+    """New interface for general language translation"""
+    st.header("General Translation")
+    
+    # Translation Settings
+    st.subheader("Translation Settings")
+    translation_mode = st.radio(
+        "Choose Translation Mode",
+        ["Standard Translation", "Interactive Word-by-Word"],
+        help="Standard Translation: Full sentence translation\nInteractive Word-by-Word: Click on individual words to see translations and hear pronunciation"
+    )
+
+    col1, col2 = st.columns(2)
+    with col1:
+        from_language = st.selectbox(
+            "From Language",
+            options=list(languages.keys()),
+            index=None,
+            placeholder="Select source language..."
+        )
+    with col2:
+        to_language = st.selectbox(
+            "To Language",
+            options=list(languages.keys()),
+            index=None,
+            placeholder="Select target language..."
+        )
+
+    # Rest of the interface similar to Chinese translation
+    # but without pinyin-specific features
+
+    # Input Options
+    input_method = st.radio("Choose input method:", [
+                            "Paste Text", "Upload File", "Try Example"], key="general_input_method")
+
+    # Initialize text_input outside the if blocks
+    text_input = ""
+
+    if input_method == "Paste Text":
+        text_input = st.text_area(
+            f"Paste {from_language} text here" if from_language else "Paste text here",
+            value="",
+            height=500,
+            key="general_text_input"
+        )
+
+    elif input_method == "Upload File":
+        uploaded_file = st.file_uploader(
+            "Upload text file",
+            type=['txt'],
+            key="general_file_uploader"
+        )
+        if uploaded_file:
+            try:
+                text_input = uploaded_file.getvalue().decode('utf-8')
+                text_input = st.text_area(
+                    "Edit uploaded text if needed:",
+                    value=text_input,
+                    height=300,
+                    key="general_uploaded_text"
+                )
+            except Exception as e:
+                st.error(f"Error reading file: {str(e)}")
+
+    else:  # Try Example
+        example_texts = {
+            "English": "The United Nations General Assembly convened today to discuss global climate change initiatives.",
+            "French": "L'Assemblée nationale a adopté hier soir une nouvelle loi sur la protection de l'environnement.",
+            "Spanish": "El Festival de Cine de Madrid comenzará la próxima semana con una selección internacional de películas.",
+            "Japanese": "東京オリンピックは世界中のアスリートと観客を魅了しました。",
+            # Add more examples for other languages
+        }
+        
+        if from_language:
+            example_text = example_texts.get(from_language, "Please select a source language first")
+            text_input = st.text_area(
+                "Example text (you can edit):",
+                value=example_text,
+                height=300,
+                key="general_example_text"
+            )
 
 
 def update_progress(progress, progress_bar, status_text):
@@ -576,6 +694,121 @@ def display_interactive_chinese(text, password_manager, target_lang):
         
     except Exception as e:
         st.error(f"Error: {str(e)}")
+
+
+def create_general_tooltip_html(processed_words):
+    """Create HTML with hover tooltips for general language translation"""
+    html = """
+    <style>
+        /* ... existing styles ... */
+    </style>
+    <div class="controls-container">
+        <div>Source Language Voice:</div>
+        <select class="voice-select" id="source-voice-select" onchange="updateSourceVoice(this.value)"></select>
+        
+        <div style="margin-top: 15px;">Target Language Voice:</div>
+        <select class="voice-select" id="target-voice-select" onchange="updateTargetVoice(this.value)"></select>
+        
+        <div class="speed-container">
+            <span>Speed:</span>
+            <input type="range" id="speed-slider" min="0.5" max="2.0" step="0.1" value="1.0" oninput="updateSpeed(this.value)">
+            <span id="speed-value">1x</span>
+        </div>
+    </div>
+    <div class="text-container">
+    """
+    
+    # Add JavaScript for voice handling
+    html += """
+    <script>
+    let currentSourceVoice = '';
+    let currentTargetVoice = '';
+    let currentSpeed = 1.0;
+    
+    function populateVoiceList() {
+        const voices = window.speechSynthesis.getVoices();
+        const sourceSelect = document.getElementById('source-voice-select');
+        const targetSelect = document.getElementById('target-voice-select');
+        
+        // Clear existing options
+        sourceSelect.innerHTML = '';
+        targetSelect.innerHTML = '';
+        
+        // Filter voices by source language
+        const sourceLangVoices = voices.filter(voice => 
+            voice.lang.startsWith('""" + processed_words[0]['source_lang'] + """')
+        );
+        
+        // Filter voices by target language
+        const targetLangVoices = voices.filter(voice => 
+            voice.lang.startsWith('""" + processed_words[0]['target_lang'] + """')
+        );
+        
+        // Add voices to selects
+        sourceLangVoices.forEach(voice => {
+            const option = document.createElement('option');
+            option.value = voice.name;
+            option.textContent = voice.name;
+            sourceSelect.appendChild(option);
+        });
+        
+        targetLangVoices.forEach(voice => {
+            const option = document.createElement('option');
+            option.value = voice.name;
+            option.textContent = voice.name;
+            targetSelect.appendChild(option);
+        });
+        
+        // Set default voices
+        if (sourceLangVoices.length > 0) {
+            currentSourceVoice = sourceLangVoices[0].name;
+            sourceSelect.value = currentSourceVoice;
+        }
+        
+        if (targetLangVoices.length > 0) {
+            currentTargetVoice = targetLangVoices[0].name;
+            targetSelect.value = currentTargetVoice;
+        }
+    }
+    
+    function updateSourceVoice(voice) {
+        currentSourceVoice = voice;
+    }
+    
+    function updateTargetVoice(voice) {
+        currentTargetVoice = voice;
+    }
+    
+    function updateSpeed(speed) {
+        currentSpeed = speed;
+        document.getElementById('speed-value').textContent = speed + 'x';
+    }
+    
+    function playAudio(text, isSource) {
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.rate = currentSpeed;
+        
+        const voices = window.speechSynthesis.getVoices();
+        const selectedVoice = voices.find(voice => 
+            voice.name === (isSource ? currentSourceVoice : currentTargetVoice)
+        );
+        
+        if (selectedVoice) {
+            utterance.voice = selectedVoice;
+        }
+        
+        window.speechSynthesis.speak(utterance);
+    }
+    
+    // Initialize voices when they're loaded
+    if (speechSynthesis.onvoiceschanged !== undefined) {
+        speechSynthesis.onvoiceschanged = populateVoiceList;
+    }
+    populateVoiceList();
+    </script>
+    """
+    
+    return html
 
 
 def main():
