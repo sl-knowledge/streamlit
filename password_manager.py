@@ -365,10 +365,10 @@ class PasswordManager:
         try:
             import translators.server as tss
             
-            # Segment the text using jieba
+            # 1. 分词
             words = list(jieba.cut(text))
             
-            # Get pinyin for each word with spaces between characters
+            # 2. 一次性获取所有拼音
             word_pinyins = []
             for word in words:
                 # Get pinyin for each character in the word
@@ -380,38 +380,36 @@ class PasswordManager:
                 # Join characters with spaces
                 word_pinyins.append(' '.join(char_pinyins))
             
-            # Get translations for each word in target language
-            word_translations = []
-            for word in words:
-                try:
-                    # Try using bing translator directly
-                    trans = tss.bing(
-                        word,
-                        from_language='zh',
-                        to_language=target_lang,
-                        if_use_cn_host=True  # Try using CN host
-                    )
-                    word_translations.append(trans)
-                except Exception as e:
-                    try:
-                        # Fallback to google translator if bing fails
-                        trans = tss.google(
-                            word,
-                            from_language='zh',
-                            to_language=target_lang
-                        )
-                        word_translations.append(trans)
-                    except Exception as e:
-                        print(f"Translation error for word '{word}': {str(e)}")
-                        word_translations.append("")
+            # 3. 将所有词组合成一个文本进行一次性翻译
+            combined_text = ' '.join(words)
+            try:
+                # 一次性翻译整个文本
+                full_translation = tss.translate_text(
+                    combined_text,
+                    translator='bing',
+                    from_language='zh',
+                    to_language=target_lang
+                )
+                
+                # 将翻译结果按词数分割
+                translations = full_translation.split()
+                # 确保翻译结果和词数匹配
+                if len(translations) < len(words):
+                    translations.extend([''] * (len(words) - len(translations)))
+                elif len(translations) > len(words):
+                    translations = translations[:len(words)]
+                    
+            except Exception as e:
+                print(f"Translation error: {str(e)}")
+                translations = [''] * len(words)
             
-            # Combine the results
+            # 4. 组合结果
             processed_words = []
             for i, word in enumerate(words):
                 processed_words.append({
                     'word': word,
                     'pinyin': word_pinyins[i],
-                    'translation': word_translations[i],
+                    'translation': translations[i] if i < len(translations) else '',
                     'audio_url': f"/audio/{word}"
                 })
                 

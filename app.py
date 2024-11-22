@@ -241,13 +241,7 @@ def show_user_interface(user_password=None):
         example_text = """第37届中国电影金鸡奖是2024年11月16日在中国厦门举行的中国电影颁奖礼[2]，该届颁奖礼由中国文学艺术界联合会、中国电影家协会与厦门市人民政府共同主办。2024年10月27日公布评委会提名名单[3][4]，颁奖典礼主持人由电影频道主持人蓝羽与演员佟大为担任[5]。
 
 张艺谋执导的《第二十条》获最佳故事片奖，陈凯歌凭借《志愿军：雄兵出击》获得最佳导演，雷佳音、李庚希分别凭借《第二十条》和《我们一起摇太阳》获得最佳男女主角奖[6]，李庚希亦成为中国电影金鸡奖的第一位"00后"影后[7]。
-
-概要
-中国电影家协会于2024年7月4日宣布该届颁礼评选工作开始，参评对象为202371日至2024年6月30日期间取得国家电影局核发电影公映许可证的影片[8]，设有最佳故事片、评委会特别奖、最佳中小成本故事片及专业奖项共20个，共有251部影片报名参选。评选和终评三阶段，按种分为故事片、纪／科教片、美术片、戏曲片共4个评委会，评委会成员实名投票产生各奖项提名名单，金鸡百花电影节举行期间进行终评决定最终
-
-云南地处中国西南，位于北纬21°8'32"－29°15'8"和经97°31'39"－106°11'47"之间，全境东西最大横距864.9公里，南北最大纵距900公里，总面积39.4万平方千米，占中国国土面积的4.1%，居第8位。最低处位于河口县城西南，南溪河与红河交汇，高程为海拔76.4米，为云南最低处[22]；最高处位于德钦县的梅里雪山主峰卡瓦格博峰，海拔6,740米，为云南最高点[23]。云南全境，东与贵州、广西接壤，北与四川毗邻，西北与西藏交界，西与缅甸为邻，南同老挝、越南毗连。云南有长达4,060公里国境线，是国连接东南亚各国的陆路通道，全省有出境公路20多条。北回归线穿越全境，全省分属热带、亚热带气候，兼具低纬气候、季风气候、山原气候的特点[24]。
-
-云南处青藏高原南延部分和云贵高原，为高原山区份。地貌上有五个特征，一是高原呈扫帚状，三江并流皱褶地区的横断山脉是扫帚柄部分，苍山、无量山、哀牢山组成扫帚部分，二是高山峡谷相间，三是地势自西北向东南分三大阶梯递降，四是断陷盆地星罗棋布，五是山川湖泊纵横。地形上河谷盆地、丘陵、山地、高原相间分布，各类地貌之间条件差异很大，类型多样复杂。全省依地形分类，山地约占84%，高原、丘陵约占10%，河谷地约占6%；平均海拔2,000米左右。全省127个县（市）区及东川市共128个行政区划单位中，除昆明市的五华、盘龙区两个城区外，山区比重都在70%以上，没有一个纯坝（河谷盆地）县（市）区。 其中山区面积占县域总面积70一79.9%的有4个，山区面积占80一89.9%的有13个，占90一95%的有5个县，其余的县（市）区均在95%以上，有18个县99%以上的土地全是山地。"""
+"""
         text_input = st.text_area(
             "Example text (you can edit):",
             value=example_text,
@@ -548,23 +542,21 @@ def create_word_tooltip_html(processed_words, target_lang):
 def display_interactive_chinese(text, password_manager, target_lang):
     """Display interactive Chinese text with tooltips"""
     try:
-        # 1. 分词并计算总数
+        # 1. 先分词
         words = list(jieba.cut(text))
         total_words = len(words)
         
-        # Process the text with the target language
-        processed_words = []
-        for i, word in enumerate(words):
-            # 处理每个词并更新进度
-            word_data = password_manager.process_chinese_text(word, target_lang)
-            processed_words.extend(word_data)
-            
-            # 更新进度
-            progress = (i + 1) / total_words * 100
-            st.session_state.progress_bar.progress(int(progress))
-            st.session_state.status_text.text(f"Processing words... {int(progress)}%")
+        # 2. 批量处理整句话，而不是一个词一个词处理
+        st.session_state.progress_bar.progress(10)
+        st.session_state.status_text.text("Segmenting text...")
         
-        # Create HTML content
+        # 3. 一次性处理整个文本
+        processed_words = password_manager.process_chinese_text(text, target_lang)
+        
+        st.session_state.progress_bar.progress(90)
+        st.session_state.status_text.text("Creating interactive display...")
+        
+        # 4. 创建HTML内容
         html_content = create_word_tooltip_html(processed_words, target_lang)
         
         # Show preview
@@ -577,6 +569,9 @@ def display_interactive_chinese(text, password_manager, target_lang):
             file_name="translation.html",
             mime="text/html"
         )
+        
+        st.session_state.progress_bar.progress(100)
+        st.session_state.status_text.text("Translation completed!")
         
     except Exception as e:
         st.error(f"Error: {str(e)}")
