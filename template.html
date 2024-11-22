@@ -259,50 +259,55 @@
         let selectedVoice = null;
         let speechRate = 1.0;
 
+        function isMeijia(voice) {
+            return voice.name === 'Meijia';
+        }
+
         function populateVoiceList() {
             voices = window.speechSynthesis.getVoices();
             const voiceSelect = document.getElementById('voiceSelect');
             voiceSelect.innerHTML = '';
 
-            // Find Microsoft Yunjian Online voice
-            const yunjianVoice = voices.find(voice => 
-                voice.name === 'Microsoft Yunjian Online (Natural) - Chinese (Mainland)' && 
-                voice.lang.startsWith('zh')
+            // Filter Chinese voices and limit to 10
+            const chineseVoices = voices.filter(voice => 
+                voice.lang.startsWith('zh') || 
+                voice.name.includes('Chinese')
+            ).slice(0, 10);
+
+            // Find default voice - first try Natural, then Meijia
+            let defaultVoice = chineseVoices.find(voice => 
+                voice.name.includes('Natural') && 
+                voice.name.includes('Chinese (Mainland)')
             );
 
-            voices.forEach((voice, index) => {
-                if (voice.lang.startsWith('zh')) {
-                    const option = document.createElement('option');
-                    option.textContent = `${voice.name} (${voice.lang})`;
-                    option.value = index;
-                    voiceSelect.appendChild(option);
+            if (!defaultVoice) {
+                defaultVoice = chineseVoices.find(isMeijia);
+            }
 
-                    // Select Yunjian voice if available
-                    if (voice === yunjianVoice) {
-                        option.selected = true;
-                        selectedVoice = voice;
-                    }
+            // Add voices to select
+            chineseVoices.forEach((voice, index) => {
+                const option = document.createElement('option');
+                option.textContent = voice.name;
+                option.value = index;
+                
+                if (voice === defaultVoice) {
+                    option.selected = true;
+                    selectedVoice = voice;
                 }
+                
+                voiceSelect.appendChild(option);
             });
 
-            // If Yunjian voice not found, try other Microsoft voices
-            if (!selectedVoice) {
-                const microsoftVoice = voices.find(voice => 
-                    voice.name.includes('Microsoft') && 
-                    voice.lang.startsWith('zh')
-                );
-                if (microsoftVoice) {
-                    selectedVoice = microsoftVoice;
-                    voiceSelect.value = voices.indexOf(microsoftVoice);
-                } else {
-                    // Fallback to any Chinese voice
-                    const chineseVoice = voices.find(voice => voice.lang.startsWith('zh'));
-                    if (chineseVoice) {
-                        selectedVoice = chineseVoice;
-                        voiceSelect.value = voices.indexOf(chineseVoice);
-                    }
+            // If no voice selected yet, use Meijia
+            if (!selectedVoice && chineseVoices.length > 0) {
+                const meijiaVoice = chineseVoices.find(isMeijia);
+                if (meijiaVoice) {
+                    selectedVoice = meijiaVoice;
+                    voiceSelect.value = chineseVoices.indexOf(meijiaVoice);
                 }
             }
+
+            console.log('Selected voice:', selectedVoice ? selectedVoice.name : 'None');
         }
 
         function speak(text) {

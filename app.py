@@ -456,11 +456,7 @@ def create_word_tooltip_html(processed_words, target_lang):
     <div class="controls-container">
         <div>Select Voice:</div>
         <select class="voice-select" id="voice-select" onchange="updateVoice(this.value)">
-            <option value="Microsoft Yunjian Online (Natural) - Chinese (Mainland)">Microsoft Yunjian Online (Natural) - Chinese (Mainland)</option>
-            <option value="Microsoft Xiaoyi Online (Natural) - Chinese (Mainland)">Microsoft Xiaoyi Online (Natural) - Chinese (Mainland)</option>
-            <option value="Microsoft Xiaoxiao Online (Natural) - Chinese (Mainland)">Microsoft Xiaoxiao Online (Natural) - Chinese (Mainland)</option>
-            <option value="Microsoft Yunxia Online (Natural) - Chinese (Mainland)">Microsoft Yunxia Online (Natural) - Chinese (Mainland)</option>
-            <option value="Microsoft Yunxi Online (Natural) - Chinese (Mainland)">Microsoft Yunxi Online (Natural) - Chinese (Mainland)</option>
+            <option value="">Loading voices...</option>
         </select>
         <div class="speed-container">
             <span>Speed:</span>
@@ -514,6 +510,18 @@ def create_word_tooltip_html(processed_words, target_lang):
     let currentVoice = '';
     let currentSpeed = 1.0;
     
+    // 严格检查是否为Meijia语音
+    function isMeijia(voice) {
+        return voice.name === 'Meijia';
+    }
+    
+    // 严格检查是否为Natural中文语音
+    function isChineseNatural(voice) {
+        return voice.name.includes('Natural') && 
+               voice.name.includes('Chinese (Mainland)') && 
+               voice.lang === 'zh-CN';
+    }
+    
     function updateVoice(voice) {
         currentVoice = voice;
     }
@@ -523,39 +531,38 @@ def create_word_tooltip_html(processed_words, target_lang):
         document.getElementById('speed-value').textContent = speed + 'x';
     }
     
+    // 获取默认语音
+    function getDefaultVoice(voices) {
+        // 首选Natural中文语音
+        const naturalVoice = voices.find(isChineseNatural);
+        if (naturalVoice) return naturalVoice;
+        
+        // 其次选择Meijia
+        const meijiaVoice = voices.find(isMeijia);
+        if (meijiaVoice) return meijiaVoice;
+        
+        // 最后选择任何中文语音
+        return voices[0];
+    }
+    
     function populateVoiceList() {
         const voices = window.speechSynthesis.getVoices();
         const voiceSelect = document.getElementById('voice-select');
         voiceSelect.innerHTML = '';
         
-        // Filter Chinese voices
+        // 只保留中文语音
         const chineseVoices = voices.filter(voice => 
             voice.lang.includes('zh') || 
-            voice.name.includes('Chinese') ||
-            voice.name === 'Meijia'
-        );
+            voice.name.includes('Chinese')
+        ).slice(0, 10);  // 限制最多10个语音
         
-        // Sort voices: Natural voices first, then Meijia, then others
-        const sortedVoices = chineseVoices.sort((a, b) => {
-            if (a.name.includes('Natural') && !b.name.includes('Natural')) return -1;
-            if (!a.name.includes('Natural') && b.name.includes('Natural')) return 1;
-            if (a.name === 'Meijia') return -1;
-            if (b.name === 'Meijia') return 1;
-            return 0;
-        }).slice(0, 10); // Only take first 10 voices
+        if (chineseVoices.length === 0) return;
         
-        // Find default voice
-        let defaultVoice = sortedVoices.find(voice => 
-            voice.name.includes('Natural') && 
-            voice.name.includes('Chinese (Mainland)')
-        );
+        // 获取默认语音
+        const defaultVoice = getDefaultVoice(chineseVoices);
         
-        if (!defaultVoice) {
-            defaultVoice = sortedVoices.find(voice => voice.name === 'Meijia');
-        }
-        
-        // Add filtered voices to select
-        sortedVoices.forEach(voice => {
+        // 添加语音选项
+        chineseVoices.forEach(voice => {
             const option = document.createElement('option');
             option.value = voice.name;
             option.textContent = voice.name;
@@ -563,9 +570,9 @@ def create_word_tooltip_html(processed_words, target_lang):
             voiceSelect.appendChild(option);
         });
         
-        if (defaultVoice) {
-            currentVoice = defaultVoice.name;
-        }
+        // 设置当前语音
+        currentVoice = defaultVoice.name;
+        console.log('Default voice set to:', currentVoice);
     }
     
     function playAudio(text) {
@@ -573,21 +580,21 @@ def create_word_tooltip_html(processed_words, target_lang):
         utterance.rate = currentSpeed;
         
         const voices = window.speechSynthesis.getVoices();
-        const selectedVoice = voices.find(voice => voice.name === currentVoice) ||
-                            voices.find(voice => 
-                                voice.name.includes('Natural') && 
-                                voice.name.includes('Chinese (Mainland)')
-                            ) ||
-                            voices.find(voice => voice.name === 'Meijia');
+        let selectedVoice = voices.find(voice => voice.name === currentVoice);
+        
+        if (!selectedVoice) {
+            selectedVoice = getDefaultVoice(voices.filter(v => v.lang.includes('zh')));
+        }
         
         if (selectedVoice) {
             utterance.voice = selectedVoice;
+            console.log('Playing audio with voice:', selectedVoice.name);
         }
         
         window.speechSynthesis.speak(utterance);
     }
     
-    // Initialize voices when they're loaded
+    // 初始化语音列表
     if (speechSynthesis.onvoiceschanged !== undefined) {
         speechSynthesis.onvoiceschanged = populateVoiceList;
     }

@@ -356,7 +356,7 @@ def translate_file(input_file: str, progress_callback=None, include_english=True
         with open('template.html', 'r', encoding='utf-8') as template_file:
             html_content = template_file.read()
 
-        translation_content = ''
+        translation_content = ''  # Start with empty content, no voice controls
 
         if translation_mode == "Interactive Word-by-Word":
             # 直接处理整个文本
@@ -364,7 +364,7 @@ def translate_file(input_file: str, progress_callback=None, include_english=True
                 text, 0, None, include_english, second_language, pinyin_style
             )
             _, _, word_data = result
-            translation_content = create_interactive_html_block(
+            translation_content += create_interactive_html_block(
                 (text, word_data), include_english)
         else:
             # 使用原有的标准翻译模式
