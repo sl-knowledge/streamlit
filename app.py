@@ -506,8 +506,8 @@ def create_word_tooltip_html(processed_words, target_lang):
             <div class="word-container">
                 <span class="chinese-word" onclick="playAudio('{word_data['word']}')">{word_data['word']}</span>
                 <span class="tooltip">
-                    {word_data['pinyin']}<br>
-                    {word_data['translation']}
+                    <div style="color: #8be9fd;">{word_data['pinyin']}</div>
+                    <div style="color: #f8f9fa; margin-top: 3px;">{word_data['translation'] or '...'}</div>
                 </span>
             </div>
             """
