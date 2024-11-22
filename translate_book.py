@@ -147,11 +147,11 @@ def process_chunk(chunk: str, index: int, executor: ThreadPoolExecutor, include_
 
 
 def create_html_block(results: tuple, include_english: bool) -> str:
-    # Unpack results based on whether English is included
+    # 添加响应式布局的class
     if include_english:
         chunk, pinyin, english, second = results
         return f'''
-            <div class="sentence-part">
+            <div class="sentence-part responsive">
                 <div class="original">{chunk}</div>
                 <div class="pinyin">{pinyin}</div>
                 <div class="english">{english}</div>
@@ -161,7 +161,7 @@ def create_html_block(results: tuple, include_english: bool) -> str:
     else:
         chunk, pinyin, second = results
         return f'''
-            <div class="sentence-part">
+            <div class="sentence-part responsive">
                 <div class="original">{chunk}</div>
                 <div class="pinyin">{pinyin}</div>
                 <div class="second-language">{second}</div>

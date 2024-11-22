@@ -3,6 +3,7 @@
 
 <head>
     <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Translation Result</title>
     <style>
         body {
@@ -252,6 +253,36 @@
         .sentence-part.interactive {
             position: relative;
             margin: 20px 0;
+        }
+
+        /* 添加移动设备响应式样式 */
+        @media (max-width: 768px) {
+            body {
+                padding: 1rem;
+                max-width: 100%;
+            }
+            
+            .translation-block {
+                margin-bottom: 1rem;
+                padding: 0.5rem;
+            }
+            
+            .voice-select-container {
+                position: sticky;
+                top: 0;
+                z-index: 1000;
+                background: white;
+            }
+            
+            .voice-controls {
+                flex-direction: column;
+                gap: 10px;
+            }
+            
+            #voiceSelect {
+                width: 100%;
+                max-width: none;
+            }
         }
     </style>
     <script>

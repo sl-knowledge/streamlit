@@ -319,7 +319,20 @@ def show_user_interface(user_password=None):
 
                     # Show preview
                     st.markdown("### Preview:")
-                    st.components.v1.html(html_content, height=600, scrolling=True)
+                    # 根据设备类型调整高度
+                    preview_height = """
+                        <script>
+                            function getPreviewHeight() {
+                                return window.innerWidth <= 768 ? 500 : 800;
+                            }
+                            document.write(getPreviewHeight());
+                        </script>
+                    """
+                    components.html(
+                        html_content + preview_height,
+                        height=600,  # 设置一个合适的默认高度
+                        scrolling=True
+                    )
 
         except Exception as e:
             st.error(f"An error occurred: {str(e)}")
