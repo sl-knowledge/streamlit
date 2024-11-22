@@ -265,15 +265,10 @@ def show_user_interface(user_password=None):
             st.error("Please enter or upload some text first!")
             return
 
-        # Track usage with IP address
-        if not pm.track_usage(user_password, len(text_input), st.session_state.client_ip):
-            st.error("Daily usage limit exceeded")
-            return
-
         try:
-            # Create a progress bar
-            progress_bar = st.progress(0)
-            status_text = st.empty()
+            # Create a progress bar and store in session state
+            st.session_state.progress_bar = st.progress(0)
+            st.session_state.status_text = st.empty()
 
             with st.spinner("Translating... This may take a few minutes."):
                 # Save input text
@@ -287,8 +282,8 @@ def show_user_interface(user_password=None):
                     # Process and display interactive text
                     display_interactive_chinese(text_input, pm, target_lang)
                     
-                    progress_bar.progress(100)
-                    status_text.text("Translation completed!")
+                    st.session_state.progress_bar.progress(100)
+                    st.session_state.status_text.text("Translation completed!")
                     st.success("Translation completed!")
                     
         except Exception as e:
