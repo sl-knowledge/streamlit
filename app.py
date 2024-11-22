@@ -542,15 +542,13 @@ def create_word_tooltip_html(processed_words, target_lang):
 def display_interactive_chinese(text, password_manager, target_lang):
     """Display interactive Chinese text with tooltips"""
     try:
-        # 1. 先分词并显示进度
+        # 1. 开始处理
         st.session_state.progress_bar.progress(0)
-        st.session_state.status_text.text("Splitting Chinese text into words...")
-        words = list(jieba.cut(text))
-        total_words = len(words)
+        st.session_state.status_text.text("Starting translation...")
         
         # 2. 显示翻译进度
         st.session_state.progress_bar.progress(20)
-        st.session_state.status_text.text(f"Translating {total_words} words...")
+        st.session_state.status_text.text("Translating text...")
         
         # 3. 一次性处理整个文本
         processed_words = password_manager.process_chinese_text(text, target_lang)
