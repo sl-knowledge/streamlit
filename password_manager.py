@@ -11,6 +11,8 @@ import time
 import plotly.graph_objects as go
 import pandas as pd
 from collections import defaultdict
+import jieba
+from pypinyin import pinyin, Style
 
 
 class PasswordManager:
@@ -357,3 +359,44 @@ class PasswordManager:
             'summary_stats': summary_stats,
             'error_distribution': dict(metrics['errors'])
         }
+
+    def process_chinese_text(self, text, target_lang="en"):
+        """Process Chinese text for word-by-word translation"""
+        try:
+            import translators.server as tss
+            
+            # Segment the text using jieba
+            words = list(jieba.cut(text))
+            
+            # Get pinyin for each word
+            word_pinyins = [
+                ''.join(p[0] for p in pinyin(word, style=Style.TONE))
+                for word in words
+            ]
+            
+            # Get translations for each word
+            word_translations = []
+            for word in words:
+                try:
+                    # Use translation service
+                    trans = tss.bing(word, from_language="zh", to_language=target_lang)
+                    word_translations.append(trans)
+                except Exception as e:
+                    print(f"Translation error for word '{word}': {str(e)}")
+                    word_translations.append("")
+            
+            # Combine the results
+            processed_words = []
+            for i, word in enumerate(words):
+                processed_words.append({
+                    'word': word,
+                    'pinyin': word_pinyins[i],
+                    'translation': word_translations[i],
+                    'audio_url': f"/audio/{word}"
+                })
+                
+            return processed_words
+            
+        except Exception as e:
+            st.error(f"Error processing text: {str(e)}")
+            return []

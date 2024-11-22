@@ -8,6 +8,7 @@ from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
+import streamlit.components.v1 as components
 
 # Initialize password manager only when needed
 pm = None
@@ -190,7 +191,7 @@ def show_user_interface(user_password=None):
             index=0,
             format_func=lambda x: 'Tone Marks (nǐ hǎo)' if x == 'tone_marks' else 'Tone Numbers (ni3 hao3)'
         )
-
+        
     if second_language == "English" and include_english:
         st.warning("English translation is already enabled via checkbox")
         second_language = None
@@ -241,7 +242,7 @@ def show_user_interface(user_password=None):
 张艺谋执导的《第二十条》获最佳故事片奖，陈凯歌凭借《志愿军：雄兵出击》获得最佳导演，雷佳音、李庚希分别凭借《第二十条》和《我们一起摇太阳》获得最佳男女主角奖[6]，李庚希亦成为中国电影金鸡奖的第一位"00后"影后[7]。
 
 概要
-中国电影家协会于2024年7月4日宣布该届颁礼评选工作开始，参评对象为2023年7月1日至2024年6月30日期间取得国家电影局核发���电影公映许可证的影片[8]，设有最佳故事片、评委会特别奖、最佳中小成本故事片及专业奖项共20个，共有251部影片报名参选。评选和终评三阶段，按种分为故事片、纪／科教片、美术片、戏曲片共4个评委会，评委会成员实名投票产生各奖项提名名单，金鸡百花电影节举行期间进行终评决定最终
+中国电影家协会于2024年7月4日宣布该届颁礼评选工作开始，参评对象为2023年7月1日至2024年6月30日期间取得国家电影局核发电影公映许可证的影片[8]，设有最佳故事片、评委会特别奖、最佳中小成本故事片及专业奖项共20个，共有251部影片报名参选。评选和终评三阶段，按种分为故事片、纪／科教片、美术片、戏曲片共4个评委会，评委会成员实名投票产生各奖项提名名单，金鸡百花电影节举行期间进行终评决定最终
 
 云南地处中国西南，位于北纬21°8'32"－29°15'8"和东经97°31'39"－106°11'47"之间，全境东西最大横距864.9公里，南北最大纵距900公里，总面积39.4万平方千米，占中国国土面积的4.1%，居第8位。最低处位于河口县城西南，南溪河与红河交汇，高程为海拔76.4米，为云南最低处[22]；最高处位于德钦县的梅里雪山主峰卡瓦格博峰，海拔6,740米，为云南最高点[23]。云南全境，东与贵州、广西接壤，北与四川毗邻，西北与西藏交界，西与缅甸为邻，南同老挝、越南毗连。云南有长达4,060公里国境线，是中国连接东南亚各国的陆路通道，全省有出境公路20多条。北回归线穿越全境，全省分属热带、亚热带气候，兼具低纬气候、季风气候、山原气候的特点[24]。
 
@@ -282,35 +283,49 @@ def show_user_interface(user_password=None):
                 if 'translation_progress' not in st.session_state:
                     st.session_state.translation_progress = 0
 
-                # Process translation
-                translate_file(
-                    "temp_input.txt",
-                    progress_callback=lambda p: update_progress(
-                        p, progress_bar, status_text),
-                    include_english=include_english,
-                    second_language=languages[second_language],
-                    pinyin_style=pinyin_style,
-                    translation_mode=translation_mode
-                )
+                if translation_mode == "Interactive Word-by-Word":
+                    # Use interactive word-by-word translation
+                    status_text.text("Processing text...")
+                    progress_bar.progress(50)
+                    
+                    # Import translators if not already imported
+                    import translators.server as tss
+                    
+                    # Process and display interactive text
+                    display_interactive_chinese(text_input, pm)
+                    
+                    progress_bar.progress(100)
+                    status_text.text("Translation completed!")
+                    st.success("Translation completed!")
+                else:
+                    # Process standard translation
+                    translate_file(
+                        "temp_input.txt",
+                        progress_callback=lambda p: update_progress(p, progress_bar, status_text),
+                        include_english=include_english,
+                        second_language=languages[second_language],
+                        pinyin_style=pinyin_style,
+                        translation_mode=translation_mode
+                    )
 
-                # Read the generated HTML
-                with open("temp_input.html", "r", encoding="utf-8-sig") as f:
-                    html_content = f.read()
+                    # Read the generated HTML
+                    with open("temp_input.html", "r", encoding="utf-8-sig") as f:
+                        html_content = f.read()
 
-                # Show success and download button
-                progress_bar.progress(100)
-                status_text.text("Translation completed!")
-                st.success("Translation completed!")
-                st.download_button(
-                    label="Download HTML",
-                    data=html_content,
-                    file_name="translation.html",
-                    mime="text/html"
-                )
+                    # Show success and download button
+                    progress_bar.progress(100)
+                    status_text.text("Translation completed!")
+                    st.success("Translation completed!")
+                    st.download_button(
+                        label="Download HTML",
+                        data=html_content,
+                        file_name="translation.html",
+                        mime="text/html"
+                    )
 
-                # Show preview
-                st.markdown("### Preview:")
-                st.components.v1.html(html_content, height=600, scrolling=True)
+                    # Show preview
+                    st.markdown("### Preview:")
+                    st.components.v1.html(html_content, height=600, scrolling=True)
 
         except Exception as e:
             st.error(f"An error occurred: {str(e)}")
@@ -355,6 +370,138 @@ def init_session():
 
 def check_admin_password(password_attempt):
     return password_attempt == st.secrets["admin_password"]
+
+
+def create_word_tooltip_html(processed_words, voice_name="Chinese Female", speed=1.0):
+    """Create HTML with hover tooltips for each word"""
+    html = """
+    <style>
+        .word-container {
+            display: inline-block;
+            position: relative;
+            margin: 0 2px;
+            cursor: pointer;
+        }
+        .tooltip {
+            visibility: hidden;
+            background-color: #2c3e50;
+            color: white;
+            text-align: center;
+            padding: 5px;
+            border-radius: 6px;
+            position: absolute;
+            z-index: 1;
+            bottom: 125%;
+            left: 50%;
+            transform: translateX(-50%);
+            white-space: nowrap;
+            font-size: 14px;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .word-container:hover .tooltip {
+            visibility: visible;
+            opacity: 1;
+        }
+        .chinese-word {
+            font-size: 18px;
+            color: #333;
+        }
+        .chinese-word:hover {
+            color: #1a73e8;
+        }
+        .controls-panel {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            z-index: 1000;
+        }
+        .controls-panel select, .controls-panel input {
+            margin: 5px 0;
+            padding: 5px;
+            width: 200px;
+        }
+        .controls-panel label {
+            display: block;
+            margin-top: 10px;
+            color: #666;
+        }
+    </style>
+    <div style="line-height: 2.5;">
+    """
+    
+    # Add the text content
+    for word_data in processed_words:
+        html += f"""
+        <div class="word-container">
+            <span class="chinese-word" 
+                  onclick="playAudio('{word_data['word']}')">{word_data['word']}</span>
+            <span class="tooltip">
+                {word_data['pinyin']}<br>
+                {word_data['translation']}
+            </span>
+        </div>
+        """
+    
+    # Add controls panel
+    html += """
+    </div>
+    <div class="controls-panel">
+        <label for="voice-select">Voice:</label>
+        <select id="voice-select" onchange="updateVoice(this.value)">
+            <option value="zh-CN-XiaoxiaoNeural">Chinese Female</option>
+            <option value="zh-CN-YunxiNeural">Chinese Male</option>
+            <option value="zh-CN-YunxiaNeural">Chinese Child</option>
+        </select>
+        
+        <label for="speed-slider">Speed:</label>
+        <input type="range" 
+               id="speed-slider" 
+               min="0.5" 
+               max="2.0" 
+               step="0.1" 
+               value="1.0"
+               oninput="updateSpeed(this.value)">
+        <span id="speed-value">1.0x</span>
+    </div>
+    
+    <script>
+    let currentVoice = 'zh-CN-XiaoxiaoNeural';
+    let currentSpeed = 1.0;
+    
+    function updateVoice(voice) {
+        currentVoice = voice;
+    }
+    
+    function updateSpeed(speed) {
+        currentSpeed = speed;
+        document.getElementById('speed-value').textContent = speed + 'x';
+    }
+    
+    function playAudio(word) {
+        // Construct URL with current voice and speed parameters
+        let url = `/audio/${encodeURIComponent(word)}?voice=${encodeURIComponent(currentVoice)}&speed=${currentSpeed}`;
+        let audio = new Audio(url);
+        audio.play().catch(e => console.log('Audio playback failed:', e));
+    }
+    </script>
+    """
+    
+    return html
+
+
+def display_interactive_chinese(text, password_manager):
+    """Display interactive Chinese text with tooltips"""
+    # Process the text
+    processed_words = password_manager.process_chinese_text(text)
+    
+    # Create and display the HTML
+    html = create_word_tooltip_html(processed_words)
+    components.html(html, height=600, scrolling=True)  # Increased height to accommodate controls
 
 
 def main():
