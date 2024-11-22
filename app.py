@@ -243,7 +243,7 @@ def show_user_interface(user_password=None):
 张艺谋执导的《第二十条》获最佳故事片奖，陈凯歌凭借《志愿军：雄兵出击》获得最佳导演，雷佳音、李庚希分别凭借《第二十条》和《我们一起摇太阳》获得最佳男女主角奖[6]，李庚希亦成为中国电影金鸡奖的第一位"00后"影后[7]。
 
 概要
-中国电影家协会于2024年7月4日宣布该届颁礼评选工作开始，参评对象为20237月1日至2024年6月30日期间取得国家电影局核发电影公映许可证的影片[8]，设有最佳故事片、评委会特别奖、最佳中小成本故事片及专业奖项共20个，共有251部影片报名参选。评选和终评三阶段，按种分为故事片、纪／科教片、美术片、戏曲片共4个评委会，评委会成员实名投票产生各奖项提名名单，金鸡百花电影节举行期间进行终评决定最终
+中国电影家协会于2024年7月4日宣布该届颁礼评选工作开始，参评对象为202371日至2024年6月30日期间取得国家电影局核发电影公映许可证的影片[8]，设有最佳故事片、评委会特别奖、最佳中小成本故事片及专业奖项共20个，共有251部影片报名参选。评选和终评三阶段，按种分为故事片、纪／科教片、美术片、戏曲片共4个评委会，评委会成员实名投票产生各奖项提名名单，金鸡百花电影节举行期间进行终评决定最终
 
 云南地处中国西南，位于北纬21°8'32"－29°15'8"和经97°31'39"－106°11'47"之间，全境东西最大横距864.9公里，南北最大纵距900公里，总面积39.4万平方千米，占中国国土面积的4.1%，居第8位。最低处位于河口县城西南，南溪河与红河交汇，高程为海拔76.4米，为云南最低处[22]；最高处位于德钦县的梅里雪山主峰卡瓦格博峰，海拔6,740米，为云南最高点[23]。云南全境，东与贵州、广西接壤，北与四川毗邻，西北与西藏交界，西与缅甸为邻，南同老挝、越南毗连。云南有长达4,060公里国境线，是国连接东南亚各国的陆路通道，全省有出境公路20多条。北回归线穿越全境，全省分属热带、亚热带气候，兼具低纬气候、季风气候、山原气候的特点[24]。
 
@@ -421,12 +421,6 @@ def create_word_tooltip_html(processed_words, target_lang):
     <div class="controls-container">
         <div>Select Voice:</div>
         <select class="voice-select" id="voice-select" onchange="updateVoice(this.value)">
-            <option value="Meijia (zh-TW)">Meijia (zh-TW)</option>
-            <option value="Microsoft Yunjian Online (Natural) - Chinese (Mainland)">Microsoft Yunjian Online (Natural) - Chinese (Mainland)</option>
-            <option value="Microsoft Xiaoyi Online (Natural) - Chinese (Mainland)">Microsoft Xiaoyi Online (Natural) - Chinese (Mainland)</option>
-            <option value="Microsoft Xiaoxiao Online (Natural) - Chinese (Mainland)">Microsoft Xiaoxiao Online (Natural) - Chinese (Mainland)</option>
-            <option value="Microsoft Yunxia Online (Natural) - Chinese (Mainland)">Microsoft Yunxia Online (Natural) - Chinese (Mainland)</option>
-            <option value="Microsoft Yunxi Online (Natural) - Chinese (Mainland)">Microsoft Yunxi Online (Natural) - Chinese (Mainland)</option>
         </select>
         <div class="speed-container">
             <span>Speed:</span>
@@ -473,11 +467,37 @@ def create_word_tooltip_html(processed_words, target_lang):
             """
         html += '</div>'
     
-    # Simplify the JavaScript for voice selection
+    # Update JavaScript to populate available voices
     html += """
+    </div>
     <script>
-    let currentVoice = 'Meijia (zh-TW)';  // Set default voice to Meijia
+    let currentVoice = '';
     let currentSpeed = 1.0;
+    
+    function populateVoiceList() {
+        const voices = window.speechSynthesis.getVoices();
+        const voiceSelect = document.getElementById('voice-select');
+        voiceSelect.innerHTML = '';
+        
+        // Filter for Chinese voices only
+        const chineseVoices = voices.filter(voice => 
+            voice.lang.includes('zh') || voice.lang.includes('cmn')
+        );
+        
+        chineseVoices.forEach(voice => {
+            const option = document.createElement('option');
+            option.value = voice.name;
+            option.textContent = voice.name;
+            voiceSelect.appendChild(option);
+        });
+        
+        // Set default voice (prefer Microsoft if available)
+        const msVoice = chineseVoices.find(voice => voice.name.includes('Microsoft'));
+        currentVoice = msVoice ? msVoice.name : (chineseVoices[0] ? chineseVoices[0].name : '');
+        if (currentVoice) {
+            voiceSelect.value = currentVoice;
+        }
+    }
     
     function updateVoice(voice) {
         currentVoice = voice;
@@ -490,18 +510,23 @@ def create_word_tooltip_html(processed_words, target_lang):
     
     function playAudio(text) {
         const utterance = new SpeechSynthesisUtterance(text);
-        utterance.lang = 'zh-TW';  // Set language to match Meijia voice
+        utterance.lang = 'zh-CN';
         utterance.rate = currentSpeed;
         
         const voices = window.speechSynthesis.getVoices();
-        let selectedVoice = voices.find(voice => voice.name === currentVoice);
-        
+        const selectedVoice = voices.find(voice => voice.name === currentVoice);
         if (selectedVoice) {
             utterance.voice = selectedVoice;
         }
         
         window.speechSynthesis.speak(utterance);
     }
+    
+    // Initialize voices when they're loaded
+    if (speechSynthesis.onvoiceschanged !== undefined) {
+        speechSynthesis.onvoiceschanged = populateVoiceList;
+    }
+    populateVoiceList();
     </script>
     """
     
