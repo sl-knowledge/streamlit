@@ -368,11 +368,17 @@ class PasswordManager:
             # Segment the text using jieba
             words = list(jieba.cut(text))
             
-            # Get pinyin for each word
-            word_pinyins = [
-                ''.join(p[0] for p in pinyin(word, style=Style.TONE))
-                for word in words
-            ]
+            # Get pinyin for each word with spaces between characters
+            word_pinyins = []
+            for word in words:
+                # Get pinyin for each character in the word
+                char_pinyins = []
+                for char in word:
+                    # Get pinyin with tone marks
+                    char_pinyin = pinyin(char, style=Style.TONE)[0][0]
+                    char_pinyins.append(char_pinyin)
+                # Join characters with spaces
+                word_pinyins.append(' '.join(char_pinyins))
             
             # Get translations for each word in target language
             word_translations = []
