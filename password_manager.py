@@ -384,18 +384,26 @@ class PasswordManager:
             word_translations = []
             for word in words:
                 try:
-                    # Use translation service with specified target language
-                    # Force translate from Chinese to target language
-                    trans = tss.translate_text(
-                        word, 
-                        translator='bing',
+                    # Try using bing translator directly
+                    trans = tss.bing(
+                        word,
                         from_language='zh',
-                        to_language=target_lang
+                        to_language=target_lang,
+                        if_use_cn_host=True  # Try using CN host
                     )
                     word_translations.append(trans)
                 except Exception as e:
-                    print(f"Translation error for word '{word}': {str(e)}")
-                    word_translations.append("")  # Empty string if translation fails
+                    try:
+                        # Fallback to google translator if bing fails
+                        trans = tss.google(
+                            word,
+                            from_language='zh',
+                            to_language=target_lang
+                        )
+                        word_translations.append(trans)
+                    except Exception as e:
+                        print(f"Translation error for word '{word}': {str(e)}")
+                        word_translations.append("")
             
             # Combine the results
             processed_words = []
