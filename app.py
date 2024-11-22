@@ -246,7 +246,7 @@ def show_user_interface(user_password=None):
 
 云南地处中国西南，位于北纬21°8'32"－29°15'8"和东经97°31'39"－106°11'47"之间，全境东西最大横距864.9公里，南北最大纵距900公里，总面积39.4万平方千米，占中国国土面积的4.1%，居第8位。最低处位于河口县城西南，南溪河与红河交汇，高程为海拔76.4米，为云南最低处[22]；最高处位于德钦县的梅里雪山主峰卡瓦格博峰，海拔6,740米，为云南最高点[23]。云南全境，东与贵州、广西接壤，北与四川毗邻，西北与西藏交界，西与缅甸为邻，南同老挝、越南毗连。云南有长达4,060公里国境线，是中国连接东南亚各国的陆路通道，全省有出境公路20多条。北回归线穿越全境，全省分属热带、亚热带气候，兼具低纬气候、季风气候、山原气候的特点[24]。
 
-云南处青藏高原南延部分和云贵高原，为高原山区省份。地貌上有五个特征，一是高原呈扫帚状，三江并流皱褶地区的横断山脉是扫帚柄部分，苍山、无量山、哀牢山组成扫帚部分，二是高山峡谷相间，三是地势自西北向东南分三大阶梯递降，四是断陷盆地星罗棋布，五是山川湖泊纵横。地形上河谷盆地、丘陵、山地、高原相间分布，各类地貌之间条件差异很大，类型多样复杂。全省依地形分类，山地约占84%，高原、丘陵约占10%，河谷盆地约占6%；平均海拔2,000米左右。全省127个县（市）区及东川市共128个行政区划单位中，除昆明市的五华、盘龙区两个城区外，山区比重都在70%以上，没有一个纯坝（河谷盆地）县（市）区。 其中山区面积占县域总面积70一79.9%的有4个，山区面积占80一89.9%的有13个，占90一95%的有5个县，其余的县（市）区均在95%以上，有18个县99%以上的土地全是山地。"""
+云南处青藏高原南延部分和云贵高原，为高原山区份。地貌上有五个特征，一是高原呈扫帚状，三江并流皱褶地区的横断山脉是扫帚柄部分，苍山、无量山、哀牢山组成扫帚部分，二是高山峡谷相间，三是地势自西北向东南分三大阶梯递降，四是断陷盆地星罗棋布，五是山川湖泊纵横。地形上河谷盆地、丘陵、山地、高原相间分布，各类地貌之间条件差异很大，类型多样复杂。全省依地形分类，山地约占84%，高原、丘陵约占10%，河谷盆地约占6%；平均海拔2,000米左右。全省127个县（市）区及东川市共128个行政区划单位中，除昆明市的五华、盘龙区两个城区外，山区比重都在70%以上，没有一个纯坝（河谷盆地）县（市）区。 其中山区面积占县域总面积70一79.9%的有4个，山区面积占80一89.9%的有13个，占90一95%的有5个县，其余的县（市）区均在95%以上，有18个县99%以上的土地全是山地。"""
         text_input = st.text_area(
             "Example text (you can edit):",
             value=example_text,
@@ -288,11 +288,11 @@ def show_user_interface(user_password=None):
                     status_text.text("Processing text...")
                     progress_bar.progress(50)
                     
-                    # Import translators if not already imported
-                    import translators.server as tss
+                    # Get the target language code
+                    target_lang = languages[second_language] if second_language else "en"
                     
                     # Process and display interactive text
-                    display_interactive_chinese(text_input, pm)
+                    display_interactive_chinese(text_input, pm, target_lang)
                     
                     progress_bar.progress(100)
                     status_text.text("Translation completed!")
@@ -372,7 +372,7 @@ def check_admin_password(password_attempt):
     return password_attempt == st.secrets["admin_password"]
 
 
-def create_word_tooltip_html(processed_words, voice_name="Chinese Female", speed=1.0):
+def create_word_tooltip_html(processed_words, target_lang):
     """Create HTML with hover tooltips for each word"""
     html = """
     <style>
@@ -410,36 +410,63 @@ def create_word_tooltip_html(processed_words, voice_name="Chinese Female", speed
         .chinese-word:hover {
             color: #1a73e8;
         }
-        .controls-panel {
+        .controls-container {
             position: fixed;
-            bottom: 20px;
-            right: 20px;
-            background: white;
-            padding: 15px;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #f8f9fa;
+            padding: 20px;
             border-radius: 8px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
             z-index: 1000;
+            width: 80%;
+            max-width: 600px;
         }
-        .controls-panel select, .controls-panel input {
-            margin: 5px 0;
-            padding: 5px;
-            width: 200px;
+        .text-container {
+            margin-top: 200px;  /* Increased padding from 150px to 200px */
+            padding: 20px;
+            line-height: 2.5;
         }
-        .controls-panel label {
-            display: block;
-            margin-top: 10px;
-            color: #666;
+        .voice-select {
+            width: 100%;
+            padding: 8px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+        .speed-container {
+            margin-top: 15px;
         }
     </style>
-    <div style="line-height: 2.5;">
+    <div class="controls-container">
+        <div>Select Voice:</div>
+        <select class="voice-select" id="voice-select" onchange="updateVoice(this.value)">
+            <option value="Microsoft Yunjian Online (Natural) - Chinese (Mainland) (zh-CN)">Microsoft Yunjian Online (Natural) - Chinese (Mainland)</option>
+            <option value="Microsoft Xiaoyi Online (Natural) - Chinese (Mainland) (zh-CN)">Microsoft Xiaoyi Online (Natural) - Chinese (Mainland)</option>
+            <option value="Microsoft Xiaoxiao Online (Natural) - Chinese (Mainland) (zh-CN)">Microsoft Xiaoxiao Online (Natural) - Chinese (Mainland)</option>
+            <option value="Microsoft Yunxia Online (Natural) - Chinese (Mainland) (zh-CN)">Microsoft Yunxia Online (Natural) - Chinese (Mainland)</option>
+            <option value="Microsoft Yunxi Online (Natural) - Chinese (Mainland) (zh-CN)">Microsoft Yunxi Online (Natural) - Chinese (Mainland)</option>
+        </select>
+        <div class="speed-container">
+            <span>Speed:</span>
+            <input type="range" 
+                   id="speed-slider" 
+                   min="0.5" 
+                   max="2.0" 
+                   step="0.1" 
+                   value="1.0"
+                   oninput="updateSpeed(this.value)">
+            <span id="speed-value">1x</span>
+        </div>
+    </div>
+    <div class="text-container">
     """
     
-    # Add the text content
+    # Add the text content with tooltips
     for word_data in processed_words:
         html += f"""
         <div class="word-container">
-            <span class="chinese-word" 
-                  onclick="playAudio('{word_data['word']}')">{word_data['word']}</span>
+            <span class="chinese-word" onclick="speak('{word_data['word']}')">{word_data['word']}</span>
             <span class="tooltip">
                 {word_data['pinyin']}<br>
                 {word_data['translation']}
@@ -447,30 +474,11 @@ def create_word_tooltip_html(processed_words, voice_name="Chinese Female", speed
         </div>
         """
     
-    # Add controls panel
+    # Add JavaScript for voice control and audio playback
     html += """
     </div>
-    <div class="controls-panel">
-        <label for="voice-select">Voice:</label>
-        <select id="voice-select" onchange="updateVoice(this.value)">
-            <option value="zh-CN-XiaoxiaoNeural">Chinese Female</option>
-            <option value="zh-CN-YunxiNeural">Chinese Male</option>
-            <option value="zh-CN-YunxiaNeural">Chinese Child</option>
-        </select>
-        
-        <label for="speed-slider">Speed:</label>
-        <input type="range" 
-               id="speed-slider" 
-               min="0.5" 
-               max="2.0" 
-               step="0.1" 
-               value="1.0"
-               oninput="updateSpeed(this.value)">
-        <span id="speed-value">1.0x</span>
-    </div>
-    
     <script>
-    let currentVoice = 'zh-CN-XiaoxiaoNeural';
+    let currentVoice = 'Microsoft Yunjian Online (Natural) - Chinese (Mainland) (zh-CN)';
     let currentSpeed = 1.0;
     
     function updateVoice(voice) {
@@ -482,11 +490,11 @@ def create_word_tooltip_html(processed_words, voice_name="Chinese Female", speed
         document.getElementById('speed-value').textContent = speed + 'x';
     }
     
-    function playAudio(word) {
-        // Construct URL with current voice and speed parameters
-        let url = `/audio/${encodeURIComponent(word)}?voice=${encodeURIComponent(currentVoice)}&speed=${currentSpeed}`;
-        let audio = new Audio(url);
-        audio.play().catch(e => console.log('Audio playback failed:', e));
+    function speak(text) {
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = 'zh-CN';
+        utterance.rate = currentSpeed;
+        speechSynthesis.speak(utterance);
     }
     </script>
     """
@@ -494,14 +502,14 @@ def create_word_tooltip_html(processed_words, voice_name="Chinese Female", speed
     return html
 
 
-def display_interactive_chinese(text, password_manager):
+def display_interactive_chinese(text, password_manager, target_lang):
     """Display interactive Chinese text with tooltips"""
-    # Process the text
-    processed_words = password_manager.process_chinese_text(text)
+    # Process the text with the target language
+    processed_words = password_manager.process_chinese_text(text, target_lang)
     
     # Create and display the HTML
-    html = create_word_tooltip_html(processed_words)
-    components.html(html, height=600, scrolling=True)  # Increased height to accommodate controls
+    html = create_word_tooltip_html(processed_words, target_lang)
+    components.html(html, height=800, scrolling=True)  # Increased height to accommodate controls
 
 
 def main():

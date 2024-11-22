@@ -374,11 +374,11 @@ class PasswordManager:
                 for word in words
             ]
             
-            # Get translations for each word
+            # Get translations for each word in target language
             word_translations = []
             for word in words:
                 try:
-                    # Use translation service
+                    # Use translation service with specified target language
                     trans = tss.bing(word, from_language="zh", to_language=target_lang)
                     word_translations.append(trans)
                 except Exception as e:
