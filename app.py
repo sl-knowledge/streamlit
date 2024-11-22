@@ -9,6 +9,7 @@ from reportlab.lib.pagesizes import A4
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 import streamlit.components.v1 as components
+import jieba
 
 # Initialize password manager only when needed
 pm = None
@@ -239,7 +240,7 @@ def show_user_interface(user_password=None):
     else:  # Try Example
         example_text = """第37届中国电影金鸡奖是2024年11月16日在中国厦门举行的中国电影颁奖礼[2]，该届颁奖礼由中国文学艺术界联合会、中国电影家协会与厦门市人民政府共同主办。2024年10月27日公布评委会提名名单[3][4]，颁奖典礼主持人由电影频道主持人蓝羽与演员佟大为担任[5]。
 
-张艺谋执导的《第二十条》获最佳故事片奖，陈凯歌凭借《志愿军：雄兵出击》获得最佳导演，雷佳音、李庚希分别凭借《第二十条》和《我们一起摇太阳》获得最佳男女主角奖[6]，李庚希亦成为中国电影金鸡奖的第一位"00后"影后[7]。
+张艺谋执导的《第二十条》获最佳故事片奖，陈凯歌凭借《志愿军：雄兵出击》获得最佳导演，雷佳音、李庚希分别凭借《第二十条》和《我们一起太阳》获得最佳男主角奖[6]，李庚希亦成为中国电影金鸡奖的第一位"00后"影后[7]。
 """
         text_input = st.text_area(
             "Example text (you can edit):",
@@ -279,18 +280,43 @@ def show_user_interface(user_password=None):
 
                 if translation_mode == "Interactive Word-by-Word":
                     # Use interactive word-by-word translation
-                    status_text.text("Processing text...")
-                    progress_bar.progress(50)
+                    status_text.text("Analyzing text structure...")
+                    progress_bar.progress(10)
                     
                     # Get the target language code
                     target_lang = languages[second_language] if second_language else "en"
                     
-                    # Process and display interactive text
-                    display_interactive_chinese(text_input, pm, target_lang)
+                    # Count total characters and estimate words using jieba
+                    total_chars = len(text_input)
+                    estimated_words = len(list(jieba.cut(text_input)))
+                    status_text.text(f"Processing {total_chars} characters ({estimated_words} estimated words)...")
+                    progress_bar.progress(20)
                     
-                    progress_bar.progress(100)
-                    status_text.text("Translation completed!")
-                    st.success("Translation completed!")
+                    # Segmenting text
+                    status_text.text(f"Segmenting Chinese text into words... ({estimated_words} estimated words)")
+                    progress_bar.progress(30)
+                    
+                    # Process and display interactive text
+                    processed_words = pm.process_chinese_text(text_input, target_lang)
+                    
+                    if processed_words:
+                        actual_words = len(processed_words)
+                        status_text.text(f"Generating interactive display... ({actual_words} words processed)")
+                        progress_bar.progress(90)
+                        
+                        # Display results
+                        display_interactive_chinese(text_input, pm, target_lang)
+                        
+                        # Show completion statistics
+                        status_text.text(
+                            f"✓ Completed! Processed {actual_words} words "
+                            f"({total_chars} characters) with pinyin and translations"
+                        )
+                        progress_bar.progress(100)
+                        st.success(f"Successfully processed {actual_words} words!")
+                    else:
+                        status_text.text("Error: No words were processed")
+                        st.error("No words were processed. Please check the text input.")
                 else:
                     # Process standard translation
                     translate_file(
@@ -341,8 +367,8 @@ def show_user_interface(user_password=None):
 
 def update_progress(progress, progress_bar, status_text):
     """Update the progress bar and status text"""
-    progress_bar.progress(int(progress))
-    status_text.text(f"Translating... {progress:.1f}%")
+    progress_bar.progress(progress/100)  # Convert percentage to 0-1 range
+    status_text.text(f"Processing... {progress:.1f}% completed")
     st.session_state.translation_progress = progress
 
 

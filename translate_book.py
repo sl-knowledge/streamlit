@@ -356,7 +356,7 @@ def translate_file(input_file: str, progress_callback=None, include_english=True
         with open('template.html', 'r', encoding='utf-8') as template_file:
             html_content = template_file.read()
 
-        translation_content = ''  # Start with empty content, no voice controls
+        translation_content = ''
 
         if translation_mode == "Interactive Word-by-Word":
             # 直接处理整个文本
@@ -372,7 +372,18 @@ def translate_file(input_file: str, progress_callback=None, include_english=True
             total_chunks = len(chunks)
             chunks_processed = 0
 
+            if progress_callback:
+                progress_callback(0)  # Start from 0%
+                print(f"Total chunks: {total_chunks}")
+
             for chunk in chunks:
+                if progress_callback:
+                    # Calculate progress from 0% to 100%
+                    current_progress = (chunks_processed / total_chunks) * 100
+                    # Print progress percentage and chunk number
+                    print(f"Processing chunk {chunks_processed + 1}/{total_chunks} ({current_progress:.1f}%)")
+                    progress_callback(current_progress)
+
                 result = process_chunk(
                     chunk, chunks_processed, None, 
                     include_english, second_language, pinyin_style
@@ -387,20 +398,12 @@ def translate_file(input_file: str, progress_callback=None, include_english=True
                         (chunk, pinyin, second), include_english=False)
                 
                 chunks_processed += 1
-                if progress_callback:
-                    progress = (chunks_processed / total_chunks) * 100
-                    progress_callback(progress)
 
         html_content = html_content.replace('{{content}}', translation_content)
         output_file = f"{os.path.splitext(input_file)[0]}.html"
         
         with open(output_file, 'w', encoding='utf-8-sig') as file:
             file.write(html_content)
-
-        if progress_callback:
-            progress_callback(100)
-
-        print("Translation completed!")
 
     except Exception as e:
         print(f"Translation error: {str(e)}")
