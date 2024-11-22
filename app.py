@@ -467,7 +467,7 @@ def create_word_tooltip_html(processed_words, target_lang):
             """
         html += '</div>'
     
-    # Update JavaScript for voice selection with specific Microsoft voice
+    # Update JavaScript for voice selection with proper Meijia fallback
     html += """
     </div>
     <script>
@@ -495,14 +495,18 @@ def create_word_tooltip_html(processed_words, target_lang):
         const yunJianVoice = chineseVoices.find(voice => 
             voice.name === 'Microsoft Yunjian Online (Natural) - Chinese (Mainland)'
         );
-        const meiJiaVoice = chineseVoices.find(voice => voice.name === 'Meijia (zh-TW)');
         
-        // Set default voice
-        currentVoice = yunJianVoice ? yunJianVoice.name : 
-                      (meiJiaVoice ? meiJiaVoice.name : 
-                      (chineseVoices[0] ? chineseVoices[0].name : ''));
-                      
-        if (currentVoice) {
+        if (yunJianVoice) {
+            currentVoice = yunJianVoice.name;
+        } else {
+            // If no Microsoft voice, explicitly look for Meijia
+            const meiJiaVoice = chineseVoices.find(voice => 
+                voice.name.includes('Meijia') || voice.name === 'Meijia (zh-TW)'
+            );
+            currentVoice = meiJiaVoice ? meiJiaVoice.name : chineseVoices[0]?.name;
+        }
+        
+        if (currentVoice && voiceSelect) {
             voiceSelect.value = currentVoice;
         }
     }
