@@ -985,6 +985,14 @@ def display_interactive_chinese(text, password_manager, target_lang):
 
 def create_general_tooltip_html(processed_words):
     """Create HTML with hover tooltips for general language translation"""
+    # Get source and target languages from processed_words
+    source_lang = processed_words[0]['source_lang']
+    target_lang = processed_words[0]['target_lang']
+    
+    # Get voice options for source and target languages
+    source_voices = voice_options[source_lang]
+    target_voices = voice_options[target_lang]
+    
     html = """
     <style>
         .word-container {
@@ -1057,10 +1065,16 @@ def create_general_tooltip_html(processed_words):
     </style>
     <div class="controls-container">
         <div>Source Language Voice:</div>
-        <select class="voice-select" id="source-voice-select" onchange="updateSourceVoice(this.value)"></select>
+        <select class="voice-select" id="source-voice-select" onchange="updateSourceVoice(this.value)">
+            <option value=""" + f'"{source_voices["default"]}"' + """>""" + source_voices["default"] + """</option>
+            """ + ''.join([f'<option value="{voice}">{voice}</option>' for voice in source_voices["fallbacks"]]) + """
+        </select>
         
         <div style="margin-top: 15px;">Target Language Voice:</div>
-        <select class="voice-select" id="target-voice-select" onchange="updateTargetVoice(this.value)"></select>
+        <select class="voice-select" id="target-voice-select" onchange="updateTargetVoice(this.value)">
+            <option value=""" + f'"{target_voices["default"]}"' + """>""" + target_voices["default"] + """</option>
+            """ + ''.join([f'<option value="{voice}">{voice}</option>' for voice in target_voices["fallbacks"]]) + """
+        </select>
         
         <div class="speed-container">
             <span>Speed:</span>
@@ -1083,87 +1097,50 @@ def create_general_tooltip_html(processed_words):
         """
     
     # Add JavaScript for voice handling
-    html += """
+    html += f"""
     </div>
     <script>
-    let currentSourceVoice = '';
-    let currentTargetVoice = '';
+    let currentSourceVoice = '{source_voices["default"]}';
+    let currentTargetVoice = '{target_voices["default"]}';
     let currentSpeed = 1.0;
     
-    function populateVoiceList() {
-        const voices = window.speechSynthesis.getVoices();
-        const sourceSelect = document.getElementById('source-voice-select');
-        const targetSelect = document.getElementById('target-voice-select');
-        
-        sourceSelect.innerHTML = '';
-        targetSelect.innerHTML = '';
-        
-        const sourceLangVoices = voices.filter(voice => 
-            voice.lang.startsWith('""" + processed_words[0]['source_lang'] + """')
-        );
-        
-        const targetLangVoices = voices.filter(voice => 
-            voice.lang.startsWith('""" + processed_words[0]['target_lang'] + """')
-        );
-        
-        sourceLangVoices.forEach(voice => {
-            const option = document.createElement('option');
-            option.value = voice.name;
-            option.textContent = voice.name;
-            sourceSelect.appendChild(option);
-        });
-        
-        targetLangVoices.forEach(voice => {
-            const option = document.createElement('option');
-            option.value = voice.name;
-            option.textContent = voice.name;
-            targetSelect.appendChild(option);
-        });
-        
-        if (sourceLangVoices.length > 0) {
-            currentSourceVoice = sourceLangVoices[0].name;
-            sourceSelect.value = currentSourceVoice;
-        }
-        
-        if (targetLangVoices.length > 0) {
-            currentTargetVoice = targetLangVoices[0].name;
-            targetSelect.value = currentTargetVoice;
-        }
-    }
-    
-    function updateSourceVoice(voice) {
+    function updateSourceVoice(voice) {{
         currentSourceVoice = voice;
-    }
+    }}
     
-    function updateTargetVoice(voice) {
+    function updateTargetVoice(voice) {{
         currentTargetVoice = voice;
-    }
+    }}
     
-    function updateSpeed(speed) {
+    function updateSpeed(speed) {{
         currentSpeed = speed;
         document.getElementById('speed-value').textContent = speed + 'x';
-    }
+    }}
     
-    function playAudio(text, isSource) {
+    function playAudio(text, isSource) {{
         const utterance = new SpeechSynthesisUtterance(text);
         utterance.rate = currentSpeed;
         
+        // Set the voice based on whether it's source or target text
+        const voiceName = isSource ? currentSourceVoice : currentTargetVoice;
         const voices = window.speechSynthesis.getVoices();
-        const selectedVoice = voices.find(voice => 
-            voice.name === (isSource ? currentSourceVoice : currentTargetVoice)
-        );
+        const selectedVoice = voices.find(voice => voice.name === voiceName);
         
-        if (selectedVoice) {
+        if (selectedVoice) {{
             utterance.voice = selectedVoice;
-        }
+            utterance.lang = selectedVoice.lang;
+        }}
         
         window.speechSynthesis.speak(utterance);
-    }
+    }}
     
-    if (speechSynthesis.onvoiceschanged !== undefined) {
-        speechSynthesis.onvoiceschanged = populateVoiceList;
-    }
-    populateVoiceList();
+    // Initialize voices when they're loaded
+    if (speechSynthesis.onvoiceschanged !== undefined) {{
+        speechSynthesis.onvoiceschanged = function() {{
+            const voices = window.speechSynthesis.getVoices();
+            console.log('Available voices:', voices.map(v => v.name));
+        }};
+    }}
     </script>
     """
     
