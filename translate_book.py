@@ -139,19 +139,19 @@ def create_html_block(results: tuple, include_english: bool) -> str:
         index, chunk, pinyin, english, second = results
         return f'''
             <div class="sentence-part responsive">
-                <div class="original" style="color: var(--text-color)">{index + 1}. {chunk}{speak_button}</div>
-                <div class="pinyin" style="color: var(--text-color)">{pinyin}</div>
-                <div class="english" style="color: var(--text-color)">{english}</div>
-                <div class="second-language" style="color: var(--text-color)">{second}</div>
+                <div class="original">{index + 1}. {chunk}{speak_button}</div>
+                <div class="pinyin">{pinyin}</div>
+                <div class="english">{english}</div>
+                <div class="second-language">{second}</div>
             </div>
         '''
     else:
         index, chunk, pinyin, second = results
         return f'''
             <div class="sentence-part responsive">
-                <div class="original" style="color: var(--text-color)">{index + 1}. {chunk}{speak_button}</div>
-                <div class="pinyin" style="color: var(--text-color)">{pinyin}</div>
-                <div class="second-language" style="color: var(--text-color)">{second}</div>
+                <div class="original">{index + 1}. {chunk}{speak_button}</div>
+                <div class="pinyin">{pinyin}</div>
+                <div class="second-language">{second}</div>
             </div>
         '''
 
@@ -259,42 +259,44 @@ def process_interactive_chunk(chunk: str, index: int, executor: ThreadPoolExecut
 def create_interactive_html_block(results: tuple, include_english: bool) -> str:
     """Create HTML for interactive word-by-word translation"""
     chunk, word_data = results
-    words_html = []
     
-    # 处理每个词的HTML
-    for data in word_data:
-        if data.get('translations'):  # 使用 get() 避免 KeyError
-            # 转义特殊字符
-            translations_escaped = [t.replace('"', '&quot;').replace("'", "&#39;") for t in data['translations']]
-            # 只显示拼音和第二语言翻译
-            tooltip_content = f"{data['pinyin']}"
-            if translations_escaped:
-                tooltip_content += f"\n{translations_escaped[-1]}"  # 只使用第二语言翻译
-            
-            # 保留 onclick 事件用于播放语音
-            word_html = f'''
-                <span class="interactive-word" 
-                      data-tooltip="{tooltip_content}"
-                      onclick="speak('{data['word']}')">
-                    {data['word']}
-                </span>'''
-            words_html.append(word_html)
+    # 初始化HTML内容
+    content_html = '<div class="interactive-text">'
+    
+    # 跟踪当前段落
+    current_paragraph = []
+    paragraphs = []
+    
+    # 按段落分组词语
+    for word in word_data:
+        if word.get('word') == '\n':
+            if current_paragraph:
+                paragraphs.append(current_paragraph)
+                current_paragraph = []
         else:
-            # 处理非中文字符
-            words_html.append(f'<span class="non-chinese">{data["word"]}</span>')
-
-    # 构建完整的HTML块（移除语音按钮但保留点播放）
-    html = f'''
-        <div class="translation-block">
-            <div class="sentence-part interactive">
-                <div class="original interactive-text">
-                    <span class="original-text">{''.join(words_html)}</span>
-                </div>
-            </div>
-        </div>
-    '''
+            current_paragraph.append(word)
     
-    return html
+    if current_paragraph:
+        paragraphs.append(current_paragraph)
+    
+    # 生成每个段落的HTML
+    for paragraph in paragraphs:
+        content_html += '<p class="interactive-paragraph">'
+        for word_data in paragraph:
+            if word_data.get('translations'):
+                tooltip_content = f"{word_data['pinyin']}\n{word_data['translations'][-1]}"
+                content_html += f'''
+                    <span class="interactive-word" 
+                          onclick="speak('{word_data['word']}')"
+                          data-tooltip="{tooltip_content}">
+                        {word_data['word']}
+                    </span>'''
+            else:
+                content_html += f'<span class="non-chinese">{word_data["word"]}</span>'
+        content_html += '</p>'
+    
+    content_html += '</div>'
+    return content_html
 
 def translate_file(input_text: str, progress_callback=None, include_english=True, 
                   second_language="vi", pinyin_style='tone_marks', 
