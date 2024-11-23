@@ -108,13 +108,11 @@ def process_chunk(chunk: str, index: int, executor: ThreadPoolExecutor, include_
         # Get translations using Azure
         translations = []
         if include_english:
-            # 使用 translate_text 函数（它会使用 password_manager）
             english = translate_text(chunk, 'en')
             if english:
                 print(f"English translation: {english}")
             translations.append(english or "[Translation Error]")
 
-        # 使用 translate_text 函数进行第二语言翻译
         second_trans = translate_text(chunk, second_language)
         if second_trans:
             print(f"Second language translation: {second_trans}")
@@ -124,28 +122,34 @@ def process_chunk(chunk: str, index: int, executor: ThreadPoolExecutor, include_
 
     except Exception as e:
         print(f"\nError processing chunk {index}: {e}")
-        error_translations = ["[Translation Error]"] * \
-            (1 + int(include_english))
+        error_translations = ["[Translation Error]"] * (1 + int(include_english))
         return (index, chunk, "[Pinyin Error]", *error_translations)
 
 
 def create_html_block(results: tuple, include_english: bool) -> str:
-    # 添加响应式布局的class
+    speak_button = '''
+        <button class="speak-button" onclick="speakSentence(this.parentElement.textContent.replace('🔊', ''))">
+            <svg viewBox="0 0 24 24">
+                <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
+            </svg>
+        </button>
+    '''
+    
     if include_english:
-        chunk, pinyin, english, second = results
+        index, chunk, pinyin, english, second = results
         return f'''
             <div class="sentence-part responsive">
-                <div class="original">{chunk}</div>
+                <div class="original">{index + 1}. {chunk}{speak_button}</div>
                 <div class="pinyin">{pinyin}</div>
                 <div class="english">{english}</div>
                 <div class="second-language">{second}</div>
             </div>
         '''
     else:
-        chunk, pinyin, second = results
+        index, chunk, pinyin, second = results
         return f'''
             <div class="sentence-part responsive">
-                <div class="original">{chunk}</div>
+                <div class="original">{index + 1}. {chunk}{speak_button}</div>
                 <div class="pinyin">{pinyin}</div>
                 <div class="second-language">{second}</div>
             </div>
@@ -298,57 +302,56 @@ def translate_file(input_text: str, progress_callback=None, include_english=True
     """Translate text with progress updates"""
     try:
         text = input_text.strip()
-        translation_content = ""  # 初始化变量
         
-        with open('template.html', 'r', encoding='utf-8') as template_file:
-            html_content = template_file.read()
-
-        if translation_mode == "Interactive Word-by-Word":
-            # 直接使用传入的翻译结果，不再检查或重新翻译
-            if not processed_words:
-                raise ValueError("Interactive mode requires processed_words")
-                
-            # 使用翻译结果生成 HTML
+        # 根据翻译模式选择不同的处理方式
+        if translation_mode == "Interactive Word-by-Word" and processed_words:
+            # 使用交互式翻译模式
+            with open('template.html', 'r', encoding='utf-8') as template_file:
+                html_content = template_file.read()
+            
+            # 创建交互式内容
             translation_content = create_interactive_html_block(
                 (text, processed_words),
                 include_english
             )
+            
+            if progress_callback:
+                progress_callback(100)
+                
+            return html_content.replace('{{content}}', translation_content)
         else:
-            # 标准翻译模式
+            # 标准翻译模式的现有代码
             chunks = split_sentence(text)
             total_chunks = len(chunks)
             chunks_processed = 0
 
+            translation_content = ""
+            
             if progress_callback:
                 progress_callback(0)
                 print(f"Total chunks: {total_chunks}")
 
             for chunk in chunks:
-                if progress_callback:
-                    current_progress = (chunks_processed / total_chunks) * 100
-                    print(f"Processing chunk {chunks_processed + 1}/{total_chunks} ({current_progress:.1f}%)")
-                    progress_callback(current_progress)
-
                 result = process_chunk(
                     chunk, chunks_processed, None, 
                     include_english, second_language, pinyin_style
                 )
-                if include_english:
-                    _, chunk, pinyin, english, second = result
-                    translation_content += create_html_block(
-                        (chunk, pinyin, english, second), include_english=True)
-                else:
-                    _, chunk, pinyin, second = result
-                    translation_content += create_html_block(
-                        (chunk, pinyin, second), include_english=False)
+                
+                translation_content += create_html_block(result, include_english)
                 
                 chunks_processed += 1
+                if progress_callback:
+                    current_progress = min(100, (chunks_processed / total_chunks) * 100)
+                    print(f"Processing chunk {chunks_processed}/{total_chunks} ({current_progress:.1f}%)")
+                    progress_callback(current_progress)
 
-        # 确保有内容后再替换
-        if translation_content:
+            with open('template.html', 'r', encoding='utf-8') as template_file:
+                html_content = template_file.read()
+                
+            if progress_callback:
+                progress_callback(100)
+                
             return html_content.replace('{{content}}', translation_content)
-        else:
-            raise ValueError("No translation content generated")
 
     except Exception as e:
         print(f"Translation error: {str(e)}")
