@@ -10,7 +10,6 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 import streamlit.components.v1 as components
 import jieba
-
 # Initialize password manager only when needed
 pm = None
 
@@ -27,94 +26,6 @@ def init_password_manager():
     return True
 
 
-def show_admin_dashboard():
-    if not init_password_manager():
-        return
-
-    try:
-        stats = pm.get_usage_stats()
-        monitoring_data = pm.get_monitoring_dashboard()
-        health_data = pm.get_system_health()  # Get health data first
-
-        st.header("Admin Dashboard")
-
-        # Password Management Section
-        st.subheader("Password Management")
-        col1, col2 = st.columns(2)
-
-        with col1:
-            days_valid = st.number_input("Days Valid", min_value=1, value=30)
-            prefix = st.text_input("Password Prefix", value="tr")
-            if st.button("Generate New Password"):
-                new_password = pm.add_password(
-                    days_valid=days_valid, prefix=prefix)
-                st.success(f"New password generated: {new_password}")
-
-        with col2:
-            st.subheader("Extend Password")
-            extend_password = st.text_input("Password to Extend")
-            additional_days = st.number_input(
-                "Additional Days", min_value=1, value=30)
-            if st.button("Extend Password"):
-                if pm.extend_password(extend_password, additional_days):
-                    st.success("Password extended successfully")
-                else:
-                    st.error("Invalid password or error extending")
-
-        # List all passwords
-        st.subheader("Active Passwords")
-        passwords = pm.list_all_passwords()
-        if passwords:
-            df = pd.DataFrame(passwords)
-            st.dataframe(df)
-        else:
-            st.info("No passwords found")
-
-        # Enhanced System Health Section with new monitoring data
-        st.subheader("System Health")
-        col1, col2, col3, col4 = st.columns(4)
-        with col1:
-            st.metric("API Response Time", health_data['api_response_time'])
-        with col2:
-            st.metric("Memory Usage", monitoring_data['summary_stats']['avg_memory'])
-        with col3:
-            st.metric("CPU Usage", monitoring_data['summary_stats']['avg_cpu'])
-        with col4:
-            st.metric("Active Users", monitoring_data['summary_stats']['active_users'])
-
-        # System Resource Usage Chart
-        st.plotly_chart(monitoring_data['usage_chart'])
-
-        # Error Distribution
-        if monitoring_data['error_distribution']:
-            st.subheader("Error Distribution")
-            error_df = pd.DataFrame(
-                list(monitoring_data['error_distribution'].items()),
-                columns=['Error Type', 'Count']
-            )
-            st.bar_chart(error_df.set_index('Error Type'))
-
-        # Usage Statistics
-        st.subheader("Usage Statistics")
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.metric("Total Passwords", stats['total_passwords'])
-        with col2:
-            st.metric("Active Passwords", stats['active_passwords'])
-        with col3:
-            st.metric("Last Modified", stats['last_modified'])
-
-        # Recent Activity
-        st.subheader("Recent Activity")
-        activity = pm.get_recent_activity()
-        if activity:
-            df = pd.DataFrame(activity)
-            st.dataframe(df)
-
-    except Exception as e:
-        st.error(f"Error displaying admin dashboard: {str(e)}")
-
-
 def show_user_interface(user_password=None):
     if not init_password_manager():
         return
@@ -125,21 +36,9 @@ def show_user_interface(user_password=None):
             st.warning("Please enter your access key to use the translator")
             return
 
-        if not pm.verify_password(user_password):
+        if not pm.check_password(user_password):
             st.error("Invalid access key")
             return
-
-    # Show usage statistics
-    stats = pm.get_user_stats(user_password)
-    if stats:
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.metric("Today's Usage",
-                      f"{stats['today_usage']}/{stats['daily_limit']}")
-        with col2:
-            st.metric("Remaining Today", stats['remaining_today'])
-        with col3:
-            st.metric("Total Usage", stats['total_usage'])
 
     # Translation Settings
     st.header("Translation Settings")
@@ -238,9 +137,9 @@ def show_user_interface(user_password=None):
                 st.error(f"Error reading file: {str(e)}")
 
     else:  # Try Example
-        example_text = """第37届中国电影金鸡奖是2024年11月16日在中国厦门举行的中国电影颁奖礼[2]，该届颁奖礼由中国文学艺术界联合会、中国电影家协会与厦门市人民政府共同主办。2024年10月27日公布评委会��名名单[3][4]，颁奖典礼主持人由电影频道主持人蓝羽与演员佟大为担任[5]。
+        example_text = """第37届中国电影金鸡奖是2024年11月16日在中国厦门举行的中国电影颁奖礼[2]，该届颁奖礼由中国文学艺术界联合会、中国电影家协会与厦门市人民政府共同主办。2024年10月27日公布评委会名名单[3][4]，颁奖典礼主持人由电影频道主持人蓝羽与演员佟大为担任[5]。
 
-张艺谋执导的《第二十条》获最佳故事片奖，陈凯歌凭借《志愿军：雄兵出击》获得最佳导演，雷佳音、李庚希分别凭借《第二十条》和《我们一起太阳》获得最佳男主角奖[6]，李庚希亦成为中国电影金鸡奖的第一位"00后"影后[7]。
+张艺执导的《第二十条》获最佳故事片奖，陈凯歌凭借《志愿军：雄兵出击》获得最佳导演，雷佳音、李庚希分别凭借《第二十条》和《我们一起太阳》获得最佳男主角奖[6]，李庚希亦成为中电影金鸡奖的第一位"00后"影后[7]。
 """
         text_input = st.text_area(
             "Example text (you can edit):",
@@ -259,110 +158,41 @@ def show_user_interface(user_password=None):
             st.error("Please enter or upload some text first!")
             return
 
-        # Track usage with IP address
-        if not pm.track_usage(user_password, len(text_input), st.session_state.client_ip):
-            st.error("Daily usage limit exceeded")
-            return
-
         try:
-            # Create a progress bar
+            # 创建进度条
             progress_bar = st.progress(0)
             status_text = st.empty()
 
-            with st.spinner("Translating... This may take a few minutes."):
-                # Save input text
-                with open("temp_input.txt", "w", encoding="utf-8") as f:
-                    f.write(text_input)
-
-                # Initialize translation progress
-                if 'translation_progress' not in st.session_state:
-                    st.session_state.translation_progress = 0
-
-                if translation_mode == "Interactive Word-by-Word":
-                    # Use interactive word-by-word translation
-                    status_text.text("Analyzing text structure...")
-                    progress_bar.progress(10)
-                    
-                    # Get the target language code
-                    target_lang = languages[second_language] if second_language else "en"
-                    
-                    # Count total characters and estimate words using jieba
-                    total_chars = len(text_input)
-                    estimated_words = len(list(jieba.cut(text_input)))
-                    status_text.text(f"Processing {total_chars} characters ({estimated_words} estimated words)...")
-                    progress_bar.progress(20)
-                    
-                    # Segmenting text
-                    status_text.text(f"Segmenting Chinese text into words... ({estimated_words} estimated words)")
-                    progress_bar.progress(30)
-                    
-                    # Process and display interactive text
-                    processed_words = pm.process_chinese_text(text_input, target_lang)
-                    
-                    if processed_words:
-                        actual_words = len(processed_words)
-                        status_text.text(f"Generating interactive display... ({actual_words} words processed)")
-                        progress_bar.progress(90)
-                        
-                        # Display results
-                        display_interactive_chinese(text_input, pm, target_lang)
-                        
-                        # Show completion statistics
-                        status_text.text(
-                            f"✓ Completed! Processed {actual_words} words "
-                            f"({total_chars} characters) with pinyin and translations"
-                        )
-                        progress_bar.progress(100)
-                        st.success(f"Successfully processed {actual_words} words!")
-                    else:
-                        status_text.text("Error: No words were processed")
-                        st.error("No words were processed. Please check the text input.")
-                else:
-                    # Process standard translation
-                    translate_file(
-                        "temp_input.txt",
-                        progress_callback=lambda p: update_progress(p, progress_bar, status_text),
-                        include_english=include_english,
-                        second_language=languages[second_language],
-                        pinyin_style=pinyin_style,
-                        translation_mode=translation_mode
-                    )
-
-                    # Read the generated HTML
-                    with open("temp_input.html", "r", encoding="utf-8-sig") as f:
-                        html_content = f.read()
-
-                    # Show success and download button
-                    progress_bar.progress(100)
-                    status_text.text("Translation completed!")
-                    st.success("Translation completed!")
-                    st.download_button(
-                        label="Download HTML",
-                        data=html_content,
-                        file_name="translation.html",
-                        mime="text/html"
-                    )
-
-                    # Show preview
-                    st.markdown("### Preview:")
-                    # 根据设备类型调整高度
-                    preview_height = """
-                        <script>
-                            function getPreviewHeight() {
-                                return window.innerWidth <= 768 ? 500 : 800;
-                            }
-                            document.write(getPreviewHeight());
-                        </script>
-                    """
-                    components.html(
-                        html_content + preview_height,
-                        height=600,  # 设置一个合适的默认高度
-                        scrolling=True
-                    )
-
+            if translation_mode == "Interactive Word-by-Word":
+                # 使用正确的语言代码
+                processed_words = st.session_state.translator.process_chinese_text(
+                    text_input, 
+                    languages[second_language]  # 使用语言字典
+                )
+                if processed_words:
+                    html_content = create_interactive_html(processed_words, include_english)
+                    components.html(html_content, height=800, scrolling=True)
+            else:
+                # 使用标准翻译模式
+                html_content = translate_file(
+                    text_input,  # 直接传入文本
+                    lambda p: update_progress(p, progress_bar, status_text),  # 传入进度回调
+                    include_english,
+                    languages[second_language],  # 使用语言字典
+                    pinyin_style,
+                    translation_mode
+                )
+                components.html(html_content, height=800, scrolling=True)
+            
+            # Add download button
+            st.download_button(
+                label="Download HTML",
+                data=html_content,
+                file_name="translation.html",
+                mime="text/html"
+            )
         except Exception as e:
-            st.error(f"An error occurred: {str(e)}")
-            st.info("Try with a smaller text or try again later.")
+            st.error(f"Translation error: {str(e)}")
 
 
 def update_progress(progress, progress_bar, status_text):
@@ -407,37 +237,80 @@ def check_admin_password(password_attempt):
 
 def create_word_tooltip_html(processed_words, target_lang):
     """Create HTML with hover tooltips for each word"""
-    # 读取模板
+    # 添加类型检查
+    if not processed_words or not isinstance(processed_words, (list, tuple)):
+        raise ValueError("processed_words must be a non-empty list or tuple")
+        
     with open('template.html', 'r', encoding='utf-8') as template_file:
         template_content = template_file.read()
     
-    # 生成内容 HTML
-    content_html = """
-    <div class="interactive-text">
+    is_dark_theme = 'dark' in st.config.get_option('theme.base')
+    
+    content_html = f"""
+    <div class="interactive-text" data-theme="{is_dark_theme}">
     """
     
-    # 处理文本内容
-    for word_data in processed_words:
-        content_html += f"""
-        <span class="interactive-word" 
-              onclick="playAudio('{word_data['word']}')"
-              data-tooltip="拼音: {word_data['pinyin']}&#10;翻译: {word_data['translation'] or '...'}">
-            {word_data['word']}
-        </span>
-        """
+    current_paragraph = []
+    paragraphs = []
+    
+    # 添加错误处理
+    try:
+        # 按段落分组
+        for word_data in processed_words:
+            if not isinstance(word_data, dict):
+                continue
+                
+            if word_data.get('word') == '\n':
+                if current_paragraph:
+                    paragraphs.append(current_paragraph)
+                    current_paragraph = []
+            else:
+                current_paragraph.append(word_data)
+        
+        # 添加最后一个段落
+        if current_paragraph:
+            paragraphs.append(current_paragraph)
+        
+        # 生成 HTML
+        for paragraph in paragraphs:
+            content_html += "<p>"
+            for word_data in paragraph:
+                # 检查是否是标点符号
+                is_punctuation = len(word_data.get('word', '')) == 1 and not word_data.get('pinyin')
+                
+                if is_punctuation:
+                    content_html += f"""
+                    <span class="non-chinese">{word_data['word']}</span>
+                    """
+                else:
+                    content_html += f"""
+                    <span class="interactive-word" 
+                          onclick="speak('{word_data.get('word', '')}')"
+                          data-tooltip="{word_data.get('pinyin', '')}&#10;{word_data.get('translation', '...')}">
+                        {word_data.get('word', '')}
+                    </span>
+                    """
+            content_html += "</p>"
+        
+    except Exception as e:
+        st.error(f"Error processing text: {str(e)}")
+        return None
     
     content_html += "</div>"
     
-    # 将内容插入模板
     final_html = template_content.replace('{{content}}', content_html)
-    
     return final_html
 
 
 def display_interactive_chinese(text, password_manager, target_lang):
     """Display interactive Chinese text with tooltips"""
     # Process the text with the target language
-    processed_words = password_manager.process_chinese_text(text, target_lang)
+    processed_words = st.session_state.translator.process_chinese_text(text, target_lang)
+    
+    # 添加错误检查
+    if not processed_words:
+        st.error("Error processing text. No words were processed.")
+        return
     
     # Create HTML content
     html_content = create_word_tooltip_html(processed_words, target_lang)
@@ -454,10 +327,24 @@ def display_interactive_chinese(text, password_manager, target_lang):
     )
 
 
+def create_interactive_html(processed_words, include_english):
+    """Create HTML content for interactive translation"""
+    with open('template.html', 'r', encoding='utf-8') as template_file:
+        html_content = template_file.read()
+    
+    # 使用 translate_book.py 中的函数创建 HTML 块
+    translation_content = create_interactive_html_block(
+        (None, processed_words),  # 传入 None 作为 chunk，因为我们已经有了处理好的词
+        include_english
+    )
+    
+    return html_content.replace('{{content}}', translation_content)
+
+
 def main():
     st.set_page_config(page_title="Translator App", layout="centered")
 
-    # 只保留文本区域的样式，移除按钮样式
+    # 保持文本区域的样式
     st.markdown("""
     <style>
     .stTextArea textarea {
@@ -477,78 +364,32 @@ def main():
     </style>
     """, unsafe_allow_html=True)
 
-    # Clear connection attempt state on page load
-    if 'db_connection_attempted' in st.session_state:
-        del st.session_state.db_connection_attempted
+    # 初始化 translator
+    if 'translator' not in st.session_state:
+        from translator import Translator
+        st.session_state.translator = Translator()
 
-    # Initialize session and IP tracking
-    init_session()
-
-    # Initialize session states
-    if 'admin_logged_in' not in st.session_state:
-        st.session_state.admin_logged_in = False
-    if 'user_logged_in' not in st.session_state:
-        st.session_state.user_logged_in = False
-    if 'current_user' not in st.session_state:
-        st.session_state.current_user = None
-
-    # Create a small button in the top-right corner for admin access
-    col1, col2 = st.columns([8, 1])
-    with col2:
-        if st.button("Admin"):
-            st.session_state.show_admin = True
-
-    # Handle admin login in a modal-like container
-    if getattr(st.session_state, 'show_admin', False):
-        with st.container():
-            st.markdown("### Admin Login")
-            admin_password = st.text_input(
-                "Admin Password", type="password", key="admin_pwd")
-            col1, col2, col3 = st.columns([1, 1, 4])
-            with col1:
-                if st.button("Login", key="admin_login"):
-                    if check_admin_password(admin_password):
-                        if init_password_manager():
-                            st.session_state.admin_logged_in = True
-                            st.session_state.show_admin = False
-                            st.rerun()
-                    else:
-                        st.error("Invalid admin password")
-            with col2:
-                if st.button("Cancel", key="admin_cancel"):
-                    st.session_state.show_admin = False
+    # 简化登录逻辑
+    if not st.session_state.get('user_logged_in', False):
+        user_password = st.text_input("Enter your access key", type="password")
+        if st.button("Login"):
+            if init_password_manager():
+                if pm.check_password(user_password):
+                    st.session_state.user_logged_in = True
+                    st.session_state.current_user = user_password
                     st.rerun()
-
-    # Show admin dashboard or user interface
-    if st.session_state.admin_logged_in:
+                else:
+                    st.error("Invalid access key")
+    else:
         col1, col2 = st.columns([10, 1])
         with col2:
-            if st.button("Logout", key="admin_logout"):
-                st.session_state.admin_logged_in = False
+            if st.button("Logout"):
+                st.session_state.user_logged_in = False
+                st.session_state.current_user = None
                 st.rerun()
-        show_admin_dashboard()
-    else:
-        # Handle user interface
-        if not st.session_state.user_logged_in:
-            user_password = st.text_input(
-                "Enter your access key", type="password", key="user_pwd")
-            if st.button("Login", key="user_login"):
-                if init_password_manager():  # Initialize before verifying password
-                    if pm.verify_password(user_password):
-                        st.session_state.user_logged_in = True
-                        st.session_state.current_user = user_password
-                        st.rerun()
-                    else:
-                        st.error("Invalid access key")
-        else:
-            col1, col2 = st.columns([10, 1])
-            with col2:
-                if st.button("Logout", key="user_logout"):
-                    st.session_state.user_logged_in = False
-                    st.session_state.current_user = None
-                    st.rerun()
-            show_user_interface(st.session_state.current_user)
+        show_user_interface(st.session_state.current_user)
 
 
 if __name__ == "__main__":
     main()
+

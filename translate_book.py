@@ -1,4 +1,3 @@
-import translators.server as tss
 import pypinyin
 import re
 import os
@@ -10,6 +9,7 @@ import sys
 import time
 import random
 import jieba
+import streamlit as st
 
 
 def split_sentence(text: str) -> List[str]:
@@ -85,42 +85,19 @@ def convert_to_pinyin(text: str, style: str = 'tone_marks') -> str:
         return "[Pinyin Error]"
 
 
-def translate_text(text, dest, max_retries=5):
-    providers = {
-        'google': lambda t, d: tss.google(t, to_language=d),  # 首选 Google
-        'bing': lambda t, d: tss.bing(t, to_language=d),      # 备选 Bing
-        'baidu': lambda t, d: tss.baidu(t, to_language=d)     # 备选 Baidu
-    }
-
-    # 添加调试信息
-    print(f"\nTrying to translate: {text[:50]}...")  # 只打印前50个字符
-
-    for provider_name, translate_func in providers.items():
-        retry_count = 0
-        while retry_count < max_retries:
-            try:
-                print(
-                    f"Attempting {provider_name} translation (attempt {retry_count + 1})")
-                time.sleep(random.uniform(2.0, 3.0))
-
-                translation = translate_func(text, dest)
-
-                if translation and isinstance(translation, str) and len(translation) >= len(text) * 0.3:
-                    print(f"Successfully translated using {provider_name}")
-                    return translation.strip()
-                else:
-                    print(f"{provider_name} returned invalid translation")
-
-            except Exception as e:
-                print(f"{provider_name} failed: {str(e)}")
-                retry_count += 1
-                time.sleep(random.uniform(3.0, 5.0))
-                continue
-
-            retry_count += 1
-
-    print("All translation providers failed")
-    return f"[Translation failed] {text}"
+def translate_text(text, target_lang):
+    """Translate text using Azure Translator"""
+    if 'translator' not in st.session_state:
+        from translator import Translator
+        st.session_state.translator = Translator()
+    
+    try:
+        translation = st.session_state.translator.translate_text(text, target_lang)
+        print(f"Azure translated '{text}' to '{translation}'")
+        return translation
+    except Exception as e:
+        print(f"Translation error: {str(e)}")
+        return ""
 
 
 def process_chunk(chunk: str, index: int, executor: ThreadPoolExecutor, include_english: bool, second_language: str, pinyin_style: str = 'tone_marks') -> tuple:
@@ -128,14 +105,20 @@ def process_chunk(chunk: str, index: int, executor: ThreadPoolExecutor, include_
         # Get pinyin with specified style
         pinyin = convert_to_pinyin(chunk, pinyin_style)
 
-        # Get translations
+        # Get translations using Azure
         translations = []
         if include_english:
+            # 使用 translate_text 函数（它会使用 password_manager）
             english = translate_text(chunk, 'en')
-            translations.append(english)
+            if english:
+                print(f"English translation: {english}")
+            translations.append(english or "[Translation Error]")
 
+        # 使用 translate_text 函数进行第二语言翻译
         second_trans = translate_text(chunk, second_language)
-        translations.append(second_trans)
+        if second_trans:
+            print(f"Second language translation: {second_trans}")
+        translations.append(second_trans or "[Translation Error]")
 
         return (index, chunk, pinyin, *translations)
 
@@ -254,15 +237,23 @@ def process_interactive_chunk(chunk: str, index: int, executor: ThreadPoolExecut
     """Process chunk for interactive word-by-word translation"""
     try:
         # 1. 先获取整句翻译，保持上下文
-        full_translations = []
+        print(f"Processing chunk: {chunk}")
+        translations = []
+        
+        # 使用 translate_text 函数（它会使用 password_manager）
         if include_english:
             full_eng = translate_text(chunk, 'en')
-            full_translations.append(full_eng)
+            print(f"Full English translation: {full_eng}")
+            translations.append(full_eng or "[Translation Error]")
+        
+        # 第二语言翻译
         full_second = translate_text(chunk, second_language)
-        full_translations.append(full_second)
+        print(f"Full second language translation: {full_second}")
+        translations.append(full_second or "[Translation Error]")
 
         # 2. 使用jieba进行分词
         words = list(jieba.cut(chunk))
+        print(f"Segmented into {len(words)} words: {words}")
         
         # 3. 处理每个词
         word_data = []
@@ -270,12 +261,13 @@ def process_interactive_chunk(chunk: str, index: int, executor: ThreadPoolExecut
             if any('\u4e00' <= char <= '\u9fff' for char in word):
                 # 获取拼音
                 pinyin = convert_to_pinyin(word, pinyin_style)
+                print(f"Word: {word}, Pinyin: {pinyin}")
                 
-                # 所有词都使用整句翻译的上下文，避免重复翻译
+                # 使用整句翻译的上下文
                 word_data.append({
                     'word': word,
                     'pinyin': pinyin,
-                    'translations': full_translations
+                    'translations': translations
                 })
             else:
                 # 非中文字符处理
@@ -288,7 +280,7 @@ def process_interactive_chunk(chunk: str, index: int, executor: ThreadPoolExecut
         return (index, chunk, word_data)
 
     except Exception as e:
-        print(f"\nError processing interactive chunk {index}: {e}")
+        print(f"\nError processing interactive chunk {index}: {str(e)}")
         return (index, chunk, [])
 
 def create_interactive_html_block(results: tuple, include_english: bool) -> str:
@@ -296,28 +288,22 @@ def create_interactive_html_block(results: tuple, include_english: bool) -> str:
     chunk, word_data = results
     words_html = []
     
-    # 获取整句的翻译，用于显示在底部
-    sentence_translations = []
-    for data in word_data:
-        if data['translations']:
-            sentence_translations = data['translations']
-            break
-    
     # 处理每个词的HTML
     for data in word_data:
-        if data['translations']:
+        if data.get('translations'):  # 使用 get() 避免 KeyError
             # 转义特殊字符
             translations_escaped = [t.replace('"', '&quot;').replace("'", "&#39;") for t in data['translations']]
             tooltip_content = f"{data['pinyin']}"
-            if include_english:
+            if include_english and translations_escaped:
                 tooltip_content += f"\nEnglish: {translations_escaped[0]}"
-            tooltip_content += f"\n{translations_escaped[-1]}"
+            if len(translations_escaped) > (1 if include_english else 0):
+                tooltip_content += f"\n{translations_escaped[-1]}"
             
             # 创建可交互的词
             word_html = f'''
                 <span class="interactive-word" 
                       data-tooltip="{tooltip_content}"
-                      onclick="speakWord(this.textContent)">
+                      onclick="speak('{data['word']}')">
                     {data['word']}
                 </span>'''
             words_html.append(word_html)
@@ -342,16 +328,14 @@ def create_interactive_html_block(results: tuple, include_english: bool) -> str:
     
     return html
 
-def translate_file(input_file: str, progress_callback=None, include_english=True, second_language="vi", pinyin_style='tone_marks', translation_mode="Standard Translation"):
-    """
-    Translate file with progress updates, language options and pinyin style
-    """
-    print(f"Starting translation of {input_file}")
+def translate_file(input_text: str, progress_callback=None, include_english=True, second_language="vi", pinyin_style='tone_marks', translation_mode="Standard Translation"):
+    """Translate text with progress updates"""
+    print(f"Starting translation")
     print(f"Translation mode: {translation_mode}")
 
     try:
-        with open(input_file, 'r', encoding='utf-8') as file:
-            text = file.read().strip()
+        # 直接使用输入的文本
+        text = input_text.strip()
 
         with open('template.html', 'r', encoding='utf-8') as template_file:
             html_content = template_file.read()
@@ -359,7 +343,6 @@ def translate_file(input_file: str, progress_callback=None, include_english=True
         translation_content = ''
 
         if translation_mode == "Interactive Word-by-Word":
-            # 直接处理整个文本
             result = process_interactive_chunk(
                 text, 0, None, include_english, second_language, pinyin_style
             )
@@ -367,7 +350,6 @@ def translate_file(input_file: str, progress_callback=None, include_english=True
             translation_content += create_interactive_html_block(
                 (text, word_data), include_english)
         else:
-            # 使用原有的标准翻译模式
             chunks = split_sentence(text)
             total_chunks = len(chunks)
             chunks_processed = 0
@@ -399,11 +381,8 @@ def translate_file(input_file: str, progress_callback=None, include_english=True
                 
                 chunks_processed += 1
 
-        html_content = html_content.replace('{{content}}', translation_content)
-        output_file = f"{os.path.splitext(input_file)[0]}.html"
-        
-        with open(output_file, 'w', encoding='utf-8-sig') as file:
-            file.write(html_content)
+        # 返回生成的 HTML
+        return html_content.replace('{{content}}', translation_content)
 
     except Exception as e:
         print(f"Translation error: {str(e)}")
