@@ -10,6 +10,10 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 import streamlit.components.v1 as components
 import jieba
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import math
+from translator import Translator
+
 # Initialize password manager only when needed
 pm = None
 
@@ -24,6 +28,13 @@ def init_password_manager():
             st.error(f"Error initializing password manager: {str(e)}")
             return False
     return True
+
+
+def init_translator():
+    if 'translator' not in st.session_state:
+        st.session_state.translator = Translator()
+        print("Translator initialized in session state")
+    return st.session_state.translator
 
 
 def show_user_interface(user_password=None):
@@ -139,7 +150,7 @@ def show_user_interface(user_password=None):
     else:  # Try Example
         example_text = """第37届中国电影金鸡奖是2024年11月16日在中国厦门举行的中国电影颁奖礼[2]，该届颁奖礼由中国文学艺术界联合会、中国电影家协会与厦门市人民政府共同主办。2024年10月27日公布评委会名名单[3][4]，颁奖典礼主持人由电影频道主持人蓝羽与演员佟大为担任[5]。
 
-张艺执导的《第二十条》获最佳故事片奖，陈凯歌凭借《志愿军：雄兵出击》获得最佳导演，佳音、李庚希分别凭借《第二十条》和《我们一起太阳》获得最佳男主角奖[6]，李庚希亦成为中电影金鸡奖的第一位"00后"影后[7]。
+张艺执导的《第二十条》获最佳故事片奖，陈凯歌凭借《志愿军：雄兵出击》获得最佳导演，音、李庚希分别凭借《第二十条》和《我们一起太阳》获得最佳男主角奖[6]，李庚希亦成为中电影金鸡奖的第一位"00后"影后[7]。
 """
         text_input = st.text_area(
             "Example text (you can edit):",
@@ -147,6 +158,9 @@ def show_user_interface(user_password=None):
             height=300,
             key="example_text_area"
         )
+
+    # Initialize translator
+    translator = init_translator()
 
     # Translation Button
     if st.button("Translate", key="translate_button"):
@@ -159,38 +173,139 @@ def show_user_interface(user_password=None):
             return
 
         try:
-            # 创建进度条
-            progress_bar = st.progress(0)
-            status_text = st.empty()
-
             if translation_mode == "Interactive Word-by-Word":
-                # 只在这里调用一次翻译
-                processed_words = st.session_state.translator.process_chinese_text(
-                    text_input, 
-                    languages[second_language]
-                )
-                if processed_words:
+                try:
+                    progress_bar = st.progress(0)
+                    status_text = st.empty()
+                    
+                    # Step 1: Word segmentation with paragraph preservation
+                    status_text.text("Step 1/3: Segmenting text...")
+                    progress_bar.progress(10)
+                    
+                    # Split text into paragraphs first
+                    paragraphs = text_input.split('\n')
+                    all_words = []
+                    paragraph_breaks = []  # Track where paragraphs end
+                    
+                    for paragraph in paragraphs:
+                        if paragraph.strip():  # If paragraph is not empty
+                            words = jieba.lcut(paragraph)
+                            all_words.extend(words)
+                            paragraph_breaks.append(len(all_words))
+                        else:
+                            # Add a special marker for empty paragraphs
+                            all_words.append('\n')
+                            paragraph_breaks.append(len(all_words))
+                    
+                    total_words = len(all_words)
+                    
+                    # Step 2: Processing words in parallel
+                    status_text.text("Step 2/3: Processing words in parallel...")
+                    processed_words = []
+                    
+                    # Function to process a batch of words
+                    def process_word_batch(word_batch, translator):
+                        batch_results = []
+                        for word in word_batch:
+                            if word == '\n':
+                                # Preserve paragraph break
+                                batch_results.append({'word': '\n'})
+                            elif word.strip():
+                                result = translator.process_chinese_text(
+                                    word, 
+                                    languages[second_language]
+                                )
+                                if result:
+                                    batch_results.extend(result)
+                        return batch_results
+                    
+                    # Create batches while preserving paragraph structure
+                    batch_size = 5
+                    word_batches = []
+                    current_batch = []
+                    
+                    for word in all_words:
+                        if word == '\n':
+                            if current_batch:
+                                word_batches.append(current_batch)
+                                current_batch = []
+                            word_batches.append(['\n'])  # Paragraph break as its own batch
+                        else:
+                            current_batch.append(word)
+                            if len(current_batch) >= batch_size:
+                                word_batches.append(current_batch)
+                                current_batch = []
+                                
+                    if current_batch:  # Add any remaining words
+                        word_batches.append(current_batch)
+                        
+                    total_batches = len(word_batches)
+                    
+                    # Process batches in parallel using ThreadPoolExecutor
+                    with ThreadPoolExecutor(max_workers=3) as executor:
+                        # Create a partial function with the translator
+                        process_batch = lambda batch: process_word_batch(batch, translator)
+                        
+                        future_to_batch = {
+                            executor.submit(process_batch, batch): i 
+                            for i, batch in enumerate(word_batches)
+                        }
+                        
+                        completed_batches = 0
+                        for future in as_completed(future_to_batch):
+                            batch_index = future_to_batch[future]
+                            try:
+                                batch_results = future.result()
+                                processed_words.extend(batch_results)
+                                
+                                # Update progress
+                                completed_batches += 1
+                                current_progress = 10 + (completed_batches / total_batches * 60)
+                                progress_bar.progress(int(current_progress))
+                                status_text.text(
+                                    f"Step 2/3: Processing words... "
+                                    f"(Batch {completed_batches}/{total_batches}, "
+                                    f"~{completed_batches * batch_size}/{total_words} words)"
+                                )
+                            except Exception as e:
+                                st.error(f"Error processing batch {batch_index}: {str(e)}")
+                    
+                    # Step 3: Generating HTML
+                    status_text.text("Step 3/3: Generating interactive HTML...")
+                    progress_bar.progress(80)
+                    
                     html_content = translate_file(
                         text_input,
-                        lambda p: update_progress(p, progress_bar, status_text),
+                        None,
                         include_english,
                         languages[second_language],
                         pinyin_style,
                         translation_mode,
-                        processed_words=processed_words  # 传递已有的翻译结果
+                        processed_words=processed_words
                     )
+                    
+                    # Complete
+                    progress_bar.progress(100)
+                    status_text.text("Translation completed!")
+                    
                     # Move download button right after success message
                     st.success("Translation completed!")
                     st.download_button(
                         label="Download HTML",
-                        data=html_content,
+                        data=html_content.encode('utf-8'),
                         file_name="translation.html",
-                        mime="text/html"
+                        mime="text/html; charset=utf-8"
                     )
                     # Display translation result
                     components.html(html_content, height=800, scrolling=True)
+                    
+                except Exception as e:
+                    st.error(f"Translation error: {str(e)}")
             else:
-                # 使用标准翻译模式
+                # Standard translation mode
+                progress_bar = st.progress(0)
+                status_text = st.empty()
+                
                 html_content = translate_file(
                     text_input,
                     lambda p: update_progress(p, progress_bar, status_text),
