@@ -143,26 +143,50 @@
             margin: 0;
         }
 
-        /* 语音按钮样式 */
+        /* 语音按钮基础样式 */
         .speak-button {
             cursor: pointer;
-            background: none;
             border: none;
-            padding: 4px;
-            margin-left: 8px;
+            padding: 3px;  /* 更小的内边距 */
+            margin-left: 6px;  /* 更小的左边距 */
             vertical-align: middle;
-            opacity: 0.7;
-            transition: opacity 0.2s;
+            transition: all 0.2s ease;
+            border-radius: 50%;
+            width: 20px;    /* 更小的按钮宽度 */
+            height: 20px;   /* 更小的按钮高度 */
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
         }
 
-        .speak-button:hover {
-            opacity: 1;
+        /* 亮色主题按钮 */
+        [data-theme="light"] .speak-button {
+            background-color: #e0e0e0;  /* 浅灰色背景 */
         }
 
-        .speak-button svg {
-            width: 16px;
-            height: 16px;
-            fill: var(--text-color);  /* 使用主题文本颜色 */
+        [data-theme="light"] .speak-button svg {
+            fill: #666666;  /* 深灰色图标 */
+            width: 14px;    /* 更小的图标 */
+            height: 14px;
+        }
+
+        [data-theme="light"] .speak-button:hover {
+            background-color: #cccccc;
+        }
+
+        /* 深色主题按钮 */
+        [data-theme="dark"] .speak-button {
+            background-color: #666666;  /* 中灰色背景 */
+        }
+
+        [data-theme="dark"] .speak-button svg {
+            fill: #e0e0e0;  /* 浅灰色图标 */
+            width: 14px;
+            height: 14px;
+        }
+
+        [data-theme="dark"] .speak-button:hover {
+            background-color: #808080;
         }
 
         /* 在现有样式中添加 */
