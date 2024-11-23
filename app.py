@@ -85,6 +85,7 @@ def show_user_interface(user_password=None):
             "Russian": "ru",
             "Spanish": "es",
             "Thai": "th",
+            "Uzbek": "uz",
             "Vietnamese": "vi"
         }
 
