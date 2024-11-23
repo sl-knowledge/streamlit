@@ -238,7 +238,7 @@ def show_user_interface(user_password=None):
                 st.error(f"Error reading file: {str(e)}")
 
     else:  # Try Example
-        example_text = """第37届中国电影金鸡奖是2024年11月16日在中国厦门举行的中国电影颁奖礼[2]，该届颁奖礼由中国文学艺术界联合会、中国电影家协会与厦门市人民政府共同主办。2024年10月27日公布评委会提名名单[3][4]，颁奖典礼主持人由电影频道主持人蓝羽与演员佟大为担任[5]。
+        example_text = """第37届中国电影金鸡奖是2024年11月16日在中国厦门举行的中国电影颁奖礼[2]，该届颁奖礼由中国文学艺术界联合会、中国电影家协会与厦门市人民政府共同主办。2024年10月27日公布评委会��名名单[3][4]，颁奖典礼主持人由电影频道主持人蓝羽与演员佟大为担任[5]。
 
 张艺谋执导的《第二十条》获最佳故事片奖，陈凯歌凭借《志愿军：雄兵出击》获得最佳导演，雷佳音、李庚希分别凭借《第二十条》和《我们一起太阳》获得最佳男主角奖[6]，李庚希亦成为中国电影金鸡奖的第一位"00后"影后[7]。
 """
@@ -407,237 +407,31 @@ def check_admin_password(password_attempt):
 
 def create_word_tooltip_html(processed_words, target_lang):
     """Create HTML with hover tooltips for each word"""
-    html = """
-    <style>
-        .word-container {
-            display: inline-block;
-            position: relative;
-            margin: 0 2px;
-            cursor: pointer;
-        }
-        .tooltip {
-            visibility: hidden;
-            background-color: #2c3e50;
-            color: white;
-            text-align: center;
-            padding: 5px;
-            border-radius: 6px;
-            position: absolute;
-            z-index: 1;
-            bottom: 125%;
-            left: 50%;
-            transform: translateX(-50%);
-            white-space: nowrap;
-            font-size: 14px;
-            opacity: 0;
-            transition: opacity 0.3s;
-        }
-        .word-container:hover .tooltip {
-            visibility: visible;
-            opacity: 1;
-        }
-        .chinese-word {
-            font-size: 18px;
-            color: #e6e6e6;
-        }
-        .chinese-word:hover {
-            color: #1a73e8;
-        }
-        .controls-container {
-            position: fixed;
-            top: 10px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: #2d3436;
-            color: #e6e6e6;
-            padding: 30px;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
-            z-index: 1000;
-            width: 80%;
-            max-width: 600px;
-        }
-        .text-container {
-            margin-top: 300px;
-            padding: 40px 20px;
-            line-height: 2.5;
-            color: #e6e6e6;
-        }
-        .voice-select {
-            width: 100%;
-            padding: 8px;
-            margin: 15px 0;
-            border-radius: 4px;
-            background: #34495e;
-            color: #e6e6e6;
-            border: 1px solid #576574;
-        }
-        .speed-container {
-            margin-top: 20px;
-            margin-bottom: 10px;
-        }
-        #speed-slider {
-            background: #34495e;
-        }
-        #speed-value {
-            color: #e6e6e6;
-        }
-        .paragraph {
-            margin-bottom: 20px;
-        }
-        body {
-            background-color: #1e1e1e;
-            margin: 0;
-            padding: 20px;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-        }
-    </style>
-    <div class="controls-container">
-        <div>Select Voice:</div>
-        <select class="voice-select" id="voice-select" onchange="updateVoice(this.value)">
-            <option value="">Loading voices...</option>
-        </select>
-        <div class="speed-container">
-            <span>Speed:</span>
-            <input type="range" 
-                   id="speed-slider" 
-                   min="0.5" 
-                   max="2.0" 
-                   step="0.1" 
-                   value="1.0"
-                   oninput="updateSpeed(this.value)">
-            <span id="speed-value">1x</span>
-        </div>
-    </div>
-    <div class="text-container">
+    # 读取模板
+    with open('template.html', 'r', encoding='utf-8') as template_file:
+        template_content = template_file.read()
+    
+    # 生成内容 HTML
+    content_html = """
+    <div class="interactive-text">
     """
     
-    # Process text while preserving paragraphs
-    current_paragraph = []
-    paragraphs = []
-    
+    # 处理文本内容
     for word_data in processed_words:
-        if word_data['word'] == '\n':
-            if current_paragraph:
-                paragraphs.append(current_paragraph)
-                current_paragraph = []
-        else:
-            current_paragraph.append(word_data)
+        content_html += f"""
+        <span class="interactive-word" 
+              onclick="playAudio('{word_data['word']}')"
+              data-tooltip="拼音: {word_data['pinyin']}&#10;翻译: {word_data['translation'] or '...'}">
+            {word_data['word']}
+        </span>
+        """
     
-    if current_paragraph:
-        paragraphs.append(current_paragraph)
+    content_html += "</div>"
     
-    # Add paragraphs to HTML
-    for paragraph in paragraphs:
-        html += '<div class="paragraph">'
-        for word_data in paragraph:
-            html += f"""
-            <div class="word-container">
-                <span class="chinese-word" onclick="playAudio('{word_data['word']}')">{word_data['word']}</span>
-                <span class="tooltip">
-                    <div style="color: #8be9fd;">{word_data['pinyin']}</div>
-                    <div style="color: #f8f9fa; margin-top: 3px;">{word_data['translation'] or '...'}</div>
-                </span>
-            </div>
-            """
-        html += '</div>'
+    # 将内容插入模板
+    final_html = template_content.replace('{{content}}', content_html)
     
-    # Add JavaScript
-    html += """
-    </div>
-    <script>
-    let currentVoice = '';
-    let currentSpeed = 1.0;
-    
-    // Check for preferred natural voices
-    function isPreferredNaturalVoice(voice) {
-        return (
-            voice.name.includes('Microsoft') && 
-            voice.name.includes('Natural') && 
-            voice.name.includes('Chinese') &&
-            !voice.name.includes('Cantonese')
-        );
-    }
-    
-    function isMeijia(voice) {
-        return voice.name.includes('Meijia');
-    }
-    
-    function getDefaultVoice(voices) {
-        // First try Microsoft natural voices
-        const naturalVoice = voices.find(isPreferredNaturalVoice);
-        if (naturalVoice) {
-            console.log('Found Microsoft natural voice:', naturalVoice.name);
-            return naturalVoice;
-        }
-        
-        // Then try Meijia
-        const meijiaVoice = voices.find(isMeijia);
-        if (meijiaVoice) {
-            console.log('Found Meijia voice:', meijiaVoice.name);
-            return meijiaVoice;
-        }
-        
-        // Last resort: first Chinese voice
-        const defaultVoice = voices[0];
-        console.log('Using default voice:', defaultVoice?.name);
-        return defaultVoice;
-    }
-    
-    function populateVoiceList() {
-        const voices = window.speechSynthesis.getVoices();
-        const voiceSelect = document.getElementById('voice-select');
-        voiceSelect.innerHTML = '';
-        
-        // Filter Chinese voices WITHOUT the .slice(0, 10) limit
-        const chineseVoices = voices.filter(voice => 
-            voice.lang.startsWith('zh') || 
-            voice.name.includes('Chinese')
-        );
-        
-        console.log('Found Chinese voices:', chineseVoices.map(v => v.name));
-        
-        if (chineseVoices.length === 0) {
-            console.log('No Chinese voices found');
-            return;
-        }
-        
-        // Get default voice
-        const defaultVoice = getDefaultVoice(chineseVoices);
-        
-        // Sort voices by priority
-        chineseVoices.sort((a, b) => {
-            if (isPreferredNaturalVoice(a)) return -1;
-            if (isPreferredNaturalVoice(b)) return 1;
-            if (isMeijia(a)) return -1;
-            if (isMeijia(b)) return 1;
-            return 0;
-        });
-        
-        // Add voices to dropdown
-        chineseVoices.forEach(voice => {
-            const option = document.createElement('option');
-            option.value = voice.name;
-            option.textContent = voice.name;
-            option.selected = voice === defaultVoice;
-            voiceSelect.appendChild(option);
-        });
-        
-        // Set current voice
-        if (defaultVoice) {
-            currentVoice = defaultVoice.name;
-            console.log('Default voice set to:', currentVoice);
-        }
-    }
-    
-    if (speechSynthesis.onvoiceschanged !== undefined) {
-        speechSynthesis.onvoiceschanged = populateVoiceList;
-    }
-    
-    populateVoiceList();
-    """
-    
-    return html
+    return final_html
 
 
 def display_interactive_chinese(text, password_manager, target_lang):
