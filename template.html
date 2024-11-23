@@ -5,25 +5,28 @@
     <meta charset="utf-8">
     <title>Translation Result</title>
     <style>
-        /* 主题变量 - 调整为更好的对比度 */
+        /* 主题变量 */
         :root {
             --primary-color: #1E90FF;
             --text-color: #0E1117;
             --bg-color: #ffffff;
             --block-bg: #ffffff;
             --block-border: #e6e6e6;
-            --control-bg: #0E1117;
-            --control-text: #ffffff;
         }
 
         /* 深色主题 */
         @media (prefers-color-scheme: dark) {
             :root {
                 --text-color: #ffffff;
-                --bg-color: #0E1117;
-                --block-bg: #1E1E1E;
-                --block-border: #2d2d2d;
+                --bg-color: #1E1E1E;
+                --block-bg: #2d2d2d;
+                --block-border: #3d3d3d;
             }
+        }
+
+        /* 确保文本在深色主题下可见 */
+        .original, .pinyin, .english, .second-language {
+            color: var(--text-color) !important;
         }
 
         .translation-block {
@@ -184,6 +187,56 @@
             margin: 0.5em 0;
             line-height: 1.6;
             color: var(--text-color);
+        }
+
+        /* 确保深色主题下的文本清晰可见 */
+        @media (prefers-color-scheme: dark) {
+            .original {
+                color: #ffffff;              /* 原文使用白色 */
+            }
+            .pinyin {
+                color: #add8e6;             /* 拼音使用浅蓝色 */
+            }
+            .english {
+                color: #98fb98;             /* 英文使用浅绿色 */
+            }
+            .second-language {
+                color: #ffd700;             /* 第二语言使用金色 */
+            }
+        }
+
+        /* 深色主题样式 */
+        @media (prefers-color-scheme: dark) {
+            .sentence-part {
+                background: #1E1E1E !important;
+            }
+            
+            .original {
+                color: #FFFFFF !important;  /* 白色，用于原文 */
+            }
+            
+            .pinyin {
+                color: #87CEEB !important;  /* 天蓝色，用于拼音 */
+            }
+            
+            .english {
+                color: #90EE90 !important;  /* 淡绿色，用于英文 */
+            }
+            
+            .second-language {
+                color: #FFB6C1 !important;  /* 浅粉色，用于第二语言 */
+            }
+        }
+
+        /* 亮色主题样式 */
+        @media (prefers-color-scheme: light) {
+            .sentence-part {
+                background: #FFFFFF !important;
+            }
+            
+            .original, .pinyin, .english, .second-language {
+                color: #000000 !important;  /* 黑色，用于所有文本 */
+            }
         }
     </style>
     <script>

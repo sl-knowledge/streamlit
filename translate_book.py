@@ -139,19 +139,19 @@ def create_html_block(results: tuple, include_english: bool) -> str:
         index, chunk, pinyin, english, second = results
         return f'''
             <div class="sentence-part responsive">
-                <div class="original">{index + 1}. {chunk}{speak_button}</div>
-                <div class="pinyin">{pinyin}</div>
-                <div class="english">{english}</div>
-                <div class="second-language">{second}</div>
+                <div class="original" style="color: var(--text-color)">{index + 1}. {chunk}{speak_button}</div>
+                <div class="pinyin" style="color: var(--text-color)">{pinyin}</div>
+                <div class="english" style="color: var(--text-color)">{english}</div>
+                <div class="second-language" style="color: var(--text-color)">{second}</div>
             </div>
         '''
     else:
         index, chunk, pinyin, second = results
         return f'''
             <div class="sentence-part responsive">
-                <div class="original">{index + 1}. {chunk}{speak_button}</div>
-                <div class="pinyin">{pinyin}</div>
-                <div class="second-language">{second}</div>
+                <div class="original" style="color: var(--text-color)">{index + 1}. {chunk}{speak_button}</div>
+                <div class="pinyin" style="color: var(--text-color)">{pinyin}</div>
+                <div class="second-language" style="color: var(--text-color)">{second}</div>
             </div>
         '''
 
@@ -303,13 +303,14 @@ def translate_file(input_text: str, progress_callback=None, include_english=True
     try:
         text = input_text.strip()
         
-        # 根据翻译模式选择不同的处理方式
         if translation_mode == "Interactive Word-by-Word" and processed_words:
-            # 使用交互式翻译模式
             with open('template.html', 'r', encoding='utf-8') as template_file:
                 html_content = template_file.read()
             
-            # 创建交互式内容
+            if progress_callback:
+                progress_callback(0)
+            
+            # 先创建内容
             translation_content = create_interactive_html_block(
                 (text, processed_words),
                 include_english
@@ -320,7 +321,7 @@ def translate_file(input_text: str, progress_callback=None, include_english=True
                 
             return html_content.replace('{{content}}', translation_content)
         else:
-            # 标准翻译模式的现有代码
+            # 保持标准翻译模式的代码完全不变
             chunks = split_sentence(text)
             total_chunks = len(chunks)
             chunks_processed = 0
