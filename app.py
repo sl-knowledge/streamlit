@@ -139,7 +139,7 @@ def show_user_interface(user_password=None):
     else:  # Try Example
         example_text = """第37届中国电影金鸡奖是2024年11月16日在中国厦门举行的中国电影颁奖礼[2]，该届颁奖礼由中国文学艺术界联合会、中国电影家协会与厦门市人民政府共同主办。2024年10月27日公布评委会名名单[3][4]，颁奖典礼主持人由电影频道主持人蓝羽与演员佟大为担任[5]。
 
-张艺执导的《第二十条》获最佳故事片奖，陈凯歌凭借《志愿军：雄兵出击》获得最佳导演，雷佳音、李庚希分别凭借《第二十条》和《我们一起太阳》获得最佳男主角奖[6]，李庚希亦成为中电影金鸡奖的第一位"00后"影后[7]。
+张艺执导的《第二十条》获最佳故事片奖，陈凯歌凭借《志愿军：雄兵出击》获得最佳导演，���佳音、李庚希分别凭借《第二十条》和《我们一起太阳》获得最佳男主角奖[6]，李庚希亦成为中电影金鸡奖的第一位"00后"影后[7]。
 """
         text_input = st.text_area(
             "Example text (you can edit):",
@@ -179,8 +179,15 @@ def show_user_interface(user_password=None):
                         translation_mode,
                         processed_words=processed_words  # 传递已有的翻译结果
                     )
-                    # 显示翻译结果
+                    # Move download button right after success message
                     st.success("Translation completed!")
+                    st.download_button(
+                        label="Download HTML",
+                        data=html_content,
+                        file_name="translation.html",
+                        mime="text/html"
+                    )
+                    # Display translation result
                     components.html(html_content, height=800, scrolling=True)
             else:
                 # 使用标准翻译模式
@@ -192,20 +199,17 @@ def show_user_interface(user_password=None):
                     pinyin_style,
                     translation_mode
                 )
+                # Move download button right after success message
                 st.success("Translation completed!")
-                components.html(html_content, height=800, scrolling=True)
-            
-            # 添加下载按钮
-            col1, col2 = st.columns([1, 4])
-            with col1:
                 st.download_button(
                     label="Download HTML",
                     data=html_content,
                     file_name="translation.html",
-                    mime="text/html",
-                    help="Download the translation as an HTML file"
+                    mime="text/html"
                 )
-                
+                # Display translation result
+                components.html(html_content, height=800, scrolling=True)
+            
         except Exception as e:
             st.error(f"Translation error: {str(e)}")
 

@@ -5,14 +5,16 @@
     <meta charset="utf-8">
     <title>Translation Result</title>
     <style>
-        /* 主题变量 */
+        /* 主题变量 - 调整为更好地匹配应用亮色主题 */
         :root {
             --primary-color: #1E90FF;
-            --text-color: #333;
-            --bg-color: #fff;
-            --tooltip-bg: rgba(0, 0, 0, 0.85);
-            --tooltip-text: #fff;
+            --text-color: #0E1117;
+            --bg-color: #ffffff;
+            --tooltip-bg: rgba(14, 17, 23, 0.95);
+            --tooltip-text: #ffffff;
             --hover-bg: rgba(30, 144, 255, 0.1);
+            --control-bg: #0E1117;
+            --control-text: #ffffff;
         }
 
         /* 深色主题 */
@@ -33,180 +35,182 @@
             padding: 20px;
             margin: 20px 0;
             box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            color: var(--text-color);
         }
 
+        .sentence-part {
+            margin-bottom: 2em;
+        }
+
+        .original, .pinyin, .english, .second-language {
+            margin: 0.5em 0;
+            line-height: 1.6;
+            color: var(--text-color);
+        }
+
+        /* Interactive word styling */
         .interactive-word {
-            display: inline-block;
-            padding: 2px 6px;
-            margin: 0 2px;
-            border-radius: 4px;
-            cursor: pointer;
             position: relative;
-            transition: all 0.2s ease;
+            cursor: pointer;
+            padding: 2px 4px;
+            border-radius: 3px;
+            transition: background-color 0.2s;
+            color: var(--text-color);
         }
 
         .interactive-word:hover {
-            background: var(--hover-bg);
-            transform: translateY(-1px);
+            background-color: var(--hover-bg);
         }
 
-        .interactive-word::after {
+        .interactive-word[data-tooltip]:before {
             content: attr(data-tooltip);
             position: absolute;
             bottom: 100%;
             left: 50%;
-            transform: translateX(-50%) scale(0.95);
+            transform: translateX(-50%);
             padding: 8px 12px;
             background: var(--tooltip-bg);
             color: var(--tooltip-text);
             border-radius: 6px;
             font-size: 14px;
             line-height: 1.4;
-            white-space: pre-line;
-            z-index: 1000;
-            opacity: 0;
+            white-space: pre-wrap;
+            max-width: 300px;
+            width: max-content;
             visibility: hidden;
-            transition: all 0.2s ease;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-            min-width: 120px;
-            text-align: center;
+            opacity: 0;
+            transition: opacity 0.2s;
+            z-index: 1000;
+            text-align: left;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
         }
 
-        .interactive-word:hover::after {
-            opacity: 1;
+        .interactive-word[data-tooltip]:hover:before {
             visibility: visible;
-            transform: translateX(-50%) scale(1);
-            bottom: calc(100% + 5px);
+            opacity: 1;
         }
 
-        .non-chinese {
-            opacity: 0.7;
-            padding: 0 2px;
+        /* Speech controls */
+        .speech-controls {
+            margin: 1em 0;
+            padding: 15px;
+            background: var(--control-bg);
+            border-radius: 8px;
+            color: var(--control-text);
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            flex-wrap: wrap;
         }
 
-        .original-text {
-            font-size: 18px;
-            line-height: 2;
-            color: var(--text-color);
+        .speech-controls select {
+            width: 100%;
+            max-width: 500px;
+            min-width: 200px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .speech-controls .control-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex: 1;
+        }
+
+        .speech-controls label {
+            white-space: nowrap;
+            margin: 0;
+            font-size: 16px;
+        }
+
+        .speech-controls input[type="range"] {
+            width: 150px;
+            margin: 0;
         }
     </style>
     <script>
+        let synth = window.speechSynthesis;
         let voices = [];
-        let selectedVoice = null;
-        let speechRate = 1.0;
 
         function populateVoiceList() {
-            voices = window.speechSynthesis.getVoices();
-            const voiceSelect = document.getElementById('voiceSelect');
+            voices = synth.getVoices();
+            let voiceSelect = document.getElementById('voice-language');
             voiceSelect.innerHTML = '';
 
-            // Find Microsoft Yunjian Online voice
-            const yunjianVoice = voices.find(voice => 
-                voice.name === 'Microsoft Yunjian Online (Natural) - Chinese (Mainland)' && 
-                voice.lang.startsWith('zh')
+            // 寻找首选语音
+            let yunjianVoice = voices.find(voice => 
+                voice.name.includes('Microsoft Yunjian Online (Natural)') && 
+                voice.lang.includes('zh-CN')
             );
+            let meiJiaVoice = voices.find(voice => 
+                voice.name.toLowerCase().includes('meijia') && 
+                voice.lang.includes('zh')
+            );
+            let defaultVoice = yunjianVoice || meiJiaVoice;
 
-            voices.forEach((voice, index) => {
-                if (voice.lang.startsWith('zh')) {
-                    const option = document.createElement('option');
-                    option.textContent = `${voice.name} (${voice.lang})`;
-                    option.value = index;
-                    voiceSelect.appendChild(option);
-
-                    // Select Yunjian voice if available
-                    if (voice === yunjianVoice) {
+            // 添加所有中文语音
+            voices.forEach(voice => {
+                if (voice.lang.includes('zh')) {
+                    let option = document.createElement('option');
+                    option.textContent = voice.name + ' (' + voice.lang + ')';
+                    option.setAttribute('data-name', voice.name);
+                    option.setAttribute('data-lang', voice.lang);
+                    
+                    // 如果是默认语音，设置为选中
+                    if (defaultVoice && voice.name === defaultVoice.name) {
                         option.selected = true;
-                        selectedVoice = voice;
                     }
+                    
+                    voiceSelect.appendChild(option);
                 }
             });
-
-            // If Yunjian voice not found, try other Microsoft voices
-            if (!selectedVoice) {
-                const microsoftVoice = voices.find(voice => 
-                    voice.name.includes('Microsoft') && 
-                    voice.lang.startsWith('zh')
-                );
-                if (microsoftVoice) {
-                    selectedVoice = microsoftVoice;
-                    voiceSelect.value = voices.indexOf(microsoftVoice);
-                } else {
-                    // Fallback to any Chinese voice
-                    const chineseVoice = voices.find(voice => voice.lang.startsWith('zh'));
-                    if (chineseVoice) {
-                        selectedVoice = chineseVoice;
-                        voiceSelect.value = voices.indexOf(chineseVoice);
-                    }
-                }
-            }
         }
 
-        function initVoices() {
-            console.log('Initializing voices...');
-            
-            voices = window.speechSynthesis.getVoices();
-            if (voices.length > 0) {
-                console.log('Voices available immediately');
-                populateVoiceList();
-            }
-            
-            window.speechSynthesis.onvoiceschanged = () => {
-                console.log('Voices changed event fired');
-                voices = window.speechSynthesis.getVoices();
-                populateVoiceList();
-            };
+        if (speechSynthesis.onvoiceschanged !== undefined) {
+            speechSynthesis.onvoiceschanged = populateVoiceList;
         }
-
-        // Initialize voices when the script loads
-        initVoices();
-
-        document.addEventListener('DOMContentLoaded', function() {
-            document.getElementById('voiceSelect').addEventListener('change', function() {
-                selectedVoice = voices[this.value];
-            });
-
-            const rateSlider = document.getElementById('rateSlider');
-            rateSlider.addEventListener('input', function() {
-                speechRate = parseFloat(this.value);
-                document.getElementById('rateValue').textContent = `${speechRate}x`;
-            });
-        });
 
         function speak(text) {
-            if (!selectedVoice) return;
-            window.speechSynthesis.cancel();
+            if (synth.speaking) {
+                synth.cancel();
+            }
+
             const utterance = new SpeechSynthesisUtterance(text);
-            utterance.voice = selectedVoice;
-            utterance.rate = speechRate;
-            utterance.pitch = 1.0;
-            window.speechSynthesis.speak(utterance);
+            let voiceSelect = document.getElementById('voice-language');
+            let selectedOption = voiceSelect.selectedOptions[0];
+            let voice = voices.find(v => 
+                v.name === selectedOption.getAttribute('data-name') && 
+                v.lang === selectedOption.getAttribute('data-lang')
+            );
+            
+            if (voice) {
+                utterance.voice = voice;
+            }
+            utterance.rate = document.getElementById('voice-speed').value;
+            synth.speak(utterance);
         }
+
+        // Initial population of voices
+        window.onload = function() {
+            populateVoiceList();
+        };
     </script>
 </head>
 
 <body>
-    <div class="voice-select-container">
-        <div>
-            <label for="voiceSelect">Select Voice:</label>
-            <select id="voiceSelect"></select>
+    <div class="speech-controls">
+        <div class="control-group">
+            <label for="voice-language">Language:</label>
+            <select id="voice-language"></select>
         </div>
-        <div class="voice-controls">
-            <div class="rate-control">
-                <label for="rateSlider">Speed:</label>
-                <input type="range" id="rateSlider" class="rate-slider" 
-                       min="0.5" max="2" step="0.1" value="1.0">
-                <span id="rateValue" class="rate-value">1.0x</span>
-            </div>
+        <div class="control-group">
+            <label for="voice-speed">Speed:</label>
+            <input type="range" id="voice-speed" min="0.5" max="2" step="0.1" value="1">
         </div>
     </div>
-
     {{content}}
-
-    <button class="go-to-top" title="Go to top">
-        <svg viewBox="0 0 24 24">
-            <path d="M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6z"/>
-        </svg>
-    </button>
 </body>
 
 </html>
