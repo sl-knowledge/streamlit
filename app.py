@@ -1,6 +1,6 @@
 import streamlit as st
 import os
-from translate_book import translate_file
+from translate_book import translate_file, create_interactive_html_block
 from io import BytesIO
 from password_manager import PasswordManager
 import pandas as pd
@@ -167,30 +167,48 @@ def show_user_interface(user_password=None):
                 # 使用正确的语言代码
                 processed_words = st.session_state.translator.process_chinese_text(
                     text_input, 
-                    languages[second_language]  # 使用语言字典
+                    languages[second_language]
                 )
                 if processed_words:
                     html_content = create_interactive_html(processed_words, include_english)
+                    # 显示翻译结果
+                    st.success("Translation completed!")
                     components.html(html_content, height=800, scrolling=True)
+                    
+                    # 添加下载按钮
+                    col1, col2 = st.columns([1, 4])
+                    with col1:
+                        st.download_button(
+                            label="Download HTML",
+                            data=html_content,
+                            file_name="translation.html",
+                            mime="text/html",
+                            help="Download the translation as an HTML file"
+                        )
             else:
                 # 使用标准翻译模式
                 html_content = translate_file(
-                    text_input,  # 直接传入文本
-                    lambda p: update_progress(p, progress_bar, status_text),  # 传入进度回调
+                    text_input,
+                    lambda p: update_progress(p, progress_bar, status_text),
                     include_english,
-                    languages[second_language],  # 使用语言字典
+                    languages[second_language],
                     pinyin_style,
                     translation_mode
                 )
+                # 显示翻译结果
+                st.success("Translation completed!")
                 components.html(html_content, height=800, scrolling=True)
-            
-            # Add download button
-            st.download_button(
-                label="Download HTML",
-                data=html_content,
-                file_name="translation.html",
-                mime="text/html"
-            )
+                
+                # 添加下载按钮
+                col1, col2 = st.columns([1, 4])
+                with col1:
+                    st.download_button(
+                        label="Download HTML",
+                        data=html_content,
+                        file_name="translation.html",
+                        mime="text/html",
+                        help="Download the translation as an HTML file"
+                    )
         except Exception as e:
             st.error(f"Translation error: {str(e)}")
 
@@ -332,7 +350,7 @@ def create_interactive_html(processed_words, include_english):
     with open('template.html', 'r', encoding='utf-8') as template_file:
         html_content = template_file.read()
     
-    # 使用 translate_book.py 中的函数创建 HTML 块
+    # 使用从 translate_book.py 导入的函数
     translation_content = create_interactive_html_block(
         (None, processed_words),  # 传入 None 作为 chunk，因为我们已经有了处理好的词
         include_english

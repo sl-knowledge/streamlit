@@ -77,6 +77,8 @@ class Translator:
             
             # Get translations using Azure
             word_translations = []
+            translated_words = {}  # 缓存已翻译的词
+            
             for word in words:
                 try:
                     # Skip translation for punctuation and numbers
@@ -84,16 +86,22 @@ class Translator:
                         word_translations.append("")
                         continue
                     
-                    # Add delay between requests
-                    time.sleep(0.5)
+                    # 检查是否已翻译过这个词
+                    if word in translated_words:
+                        translation = translated_words[word]
+                    else:
+                        # Add delay between requests
+                        time.sleep(0.5)
+                        
+                        # Translate using Azure
+                        translation = self.translate_text(word, target_lang)
+                        translated_words[word] = translation  # 缓存翻译结果
                     
-                    # Translate using Azure
-                    translation = self.translate_text(word, target_lang)
                     if translation:
-                        print(f"Azure translated '{word}' to '{translation}'")
+                        print(f"Word: '{word}' -> '{translation}'")  # 只打印一次
                         word_translations.append(translation)
                     else:
-                        print(f"Azure translation failed for '{word}'")
+                        print(f"Translation failed for '{word}'")
                         word_translations.append("")
                     
                 except Exception as e:

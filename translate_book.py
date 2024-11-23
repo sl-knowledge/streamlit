@@ -236,26 +236,11 @@ def process_text(file_path, include_english=True, second_language="vi", pinyin_s
 def process_interactive_chunk(chunk: str, index: int, executor: ThreadPoolExecutor, include_english: bool, second_language: str, pinyin_style: str = 'tone_marks') -> tuple:
     """Process chunk for interactive word-by-word translation"""
     try:
-        # 1. 先获取整句翻译，保持上下文
-        print(f"Processing chunk: {chunk}")
-        translations = []
-        
-        # 使用 translate_text 函数（它会使用 password_manager）
-        if include_english:
-            full_eng = translate_text(chunk, 'en')
-            print(f"Full English translation: {full_eng}")
-            translations.append(full_eng or "[Translation Error]")
-        
-        # 第二语言翻译
-        full_second = translate_text(chunk, second_language)
-        print(f"Full second language translation: {full_second}")
-        translations.append(full_second or "[Translation Error]")
-
-        # 2. 使用jieba进行分词
+        # 使用jieba进行分词
         words = list(jieba.cut(chunk))
         print(f"Segmented into {len(words)} words: {words}")
         
-        # 3. 处理每个词
+        # 处理每个词
         word_data = []
         for word in words:
             if any('\u4e00' <= char <= '\u9fff' for char in word):
@@ -263,11 +248,11 @@ def process_interactive_chunk(chunk: str, index: int, executor: ThreadPoolExecut
                 pinyin = convert_to_pinyin(word, pinyin_style)
                 print(f"Word: {word}, Pinyin: {pinyin}")
                 
-                # 使用整句翻译的上下文
+                # 直接使用 translator 的结果
                 word_data.append({
                     'word': word,
                     'pinyin': pinyin,
-                    'translations': translations
+                    'translations': []  # translations 会在 translator.py 中添加
                 })
             else:
                 # 非中文字符处理
@@ -293,13 +278,12 @@ def create_interactive_html_block(results: tuple, include_english: bool) -> str:
         if data.get('translations'):  # 使用 get() 避免 KeyError
             # 转义特殊字符
             translations_escaped = [t.replace('"', '&quot;').replace("'", "&#39;") for t in data['translations']]
+            # 只显示拼音和第二语言翻译
             tooltip_content = f"{data['pinyin']}"
-            if include_english and translations_escaped:
-                tooltip_content += f"\nEnglish: {translations_escaped[0]}"
-            if len(translations_escaped) > (1 if include_english else 0):
-                tooltip_content += f"\n{translations_escaped[-1]}"
+            if translations_escaped:
+                tooltip_content += f"\n{translations_escaped[-1]}"  # 只使用第二语言翻译
             
-            # 创建可交互的词
+            # 保留 onclick 事件用于播放语音
             word_html = f'''
                 <span class="interactive-word" 
                       data-tooltip="{tooltip_content}"
@@ -311,16 +295,12 @@ def create_interactive_html_block(results: tuple, include_english: bool) -> str:
             # 处理非中文字符
             words_html.append(f'<span class="non-chinese">{data["word"]}</span>')
 
-    # 构建完整的HTML块
+    # 构建完整的HTML块（移除语音按钮但保留点击播放）
     html = f'''
         <div class="translation-block">
             <div class="sentence-part interactive">
                 <div class="original interactive-text">
-                    <span class="sentence-index"></span>
                     <span class="original-text">{''.join(words_html)}</span>
-                    <button class="speaker-button" onclick="speak(this.previousElementSibling.textContent)">
-                        <div class="speaker-icon"></div>
-                    </button>
                 </div>
             </div>
         </div>
