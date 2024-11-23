@@ -8,16 +8,48 @@ from datetime import datetime
 import plotly.graph_objects as go
 
 class Translator:
+    _instance = None
+
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+            cls._instance.initialized = False
+        return cls._instance
+
     def __init__(self):
-        # Azure 配置
-        self.azure_config = {
-            'key': st.secrets.get("azure_translator", {}).get("key", ""),
-            'region': st.secrets.get("azure_translator", {}).get("region", "southeastasia"),
-            'endpoint': st.secrets.get("azure_translator", {}).get("endpoint", "https://api.cognitive.microsofttranslator.com")
-        }
+        if not self.initialized:
+            # Azure 配置
+            self.azure_config = {
+                'key': st.secrets.get("azure_translator", {}).get("key", ""),
+                'region': st.secrets.get("azure_translator", {}).get("region", "southeastasia"),
+                'endpoint': st.secrets.get("azure_translator", {}).get("endpoint", "https://api.cognitive.microsofttranslator.com")
+            }
+            # 将缓存移到类级别
+            self.translated_words = {}
+            self.initialized = True
 
     def translate_text(self, text, target_lang):
-        """使用 Azure Translator 进行翻译"""
+        """Translate text using Azure Translator"""
+        cache_key = f"{text}_{target_lang}"
+        
+        # Check cache first
+        if cache_key in self.translated_words:
+            translation = self.translated_words[cache_key]
+            print(f"[Cache] '{text}' -> '{translation}'")
+            return translation
+        
+        try:
+            # Only call Azure if not in cache
+            translation = self._call_azure_translate(text, target_lang)  # Actual API call
+            self.translated_words[cache_key] = translation  # Update cache
+            print(f"[Azure] '{text}' -> '{translation}'")
+            return translation
+        except Exception as e:
+            print(f"Translation error: {str(e)}")
+            return ""
+
+    def _call_azure_translate(self, text, target_lang):
+        """Translate text using Azure Translator API"""
         endpoint = self.azure_config['endpoint']
         location = self.azure_config['region']
         key = self.azure_config['key']
@@ -77,8 +109,9 @@ class Translator:
             
             # Get translations using Azure
             word_translations = []
-            translated_words = {}  # 缓存已翻译的词
             
+            # 使用类级别的缓存
+            cache_key = f"{word}_{target_lang}"
             for word in words:
                 try:
                     # Skip translation for punctuation and numbers
@@ -86,22 +119,23 @@ class Translator:
                         word_translations.append("")
                         continue
                     
-                    # 检查是否已翻译过这个词
-                    if word in translated_words:
-                        translation = translated_words[word]
+                    # 检查缓存
+                    cache_key = f"{word}_{target_lang}"
+                    if cache_key in self.translated_words:
+                        translation = self.translated_words[cache_key]
+                        print(f"Cache hit: '{word}' -> '{translation}'")
                     else:
                         # Add delay between requests
                         time.sleep(0.5)
                         
                         # Translate using Azure
                         translation = self.translate_text(word, target_lang)
-                        translated_words[word] = translation  # 缓存翻译结果
+                        self.translated_words[cache_key] = translation  # 更新缓存
+                        print(f"New translation: '{word}' -> '{translation}'")
                     
                     if translation:
-                        print(f"Word: '{word}' -> '{translation}'")  # 只打印一次
                         word_translations.append(translation)
                     else:
-                        print(f"Translation failed for '{word}'")
                         word_translations.append("")
                     
                 except Exception as e:

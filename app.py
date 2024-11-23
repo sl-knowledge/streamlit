@@ -164,27 +164,24 @@ def show_user_interface(user_password=None):
             status_text = st.empty()
 
             if translation_mode == "Interactive Word-by-Word":
-                # 使用正确的语言代码
+                # 只在这里调用一次翻译
                 processed_words = st.session_state.translator.process_chinese_text(
                     text_input, 
                     languages[second_language]
                 )
                 if processed_words:
-                    html_content = create_interactive_html(processed_words, include_english)
+                    html_content = translate_file(
+                        text_input,
+                        lambda p: update_progress(p, progress_bar, status_text),
+                        include_english,
+                        languages[second_language],
+                        pinyin_style,
+                        translation_mode,
+                        processed_words=processed_words  # 传递已有的翻译结果
+                    )
                     # 显示翻译结果
                     st.success("Translation completed!")
                     components.html(html_content, height=800, scrolling=True)
-                    
-                    # 添加下载按钮
-                    col1, col2 = st.columns([1, 4])
-                    with col1:
-                        st.download_button(
-                            label="Download HTML",
-                            data=html_content,
-                            file_name="translation.html",
-                            mime="text/html",
-                            help="Download the translation as an HTML file"
-                        )
             else:
                 # 使用标准翻译模式
                 html_content = translate_file(
@@ -195,20 +192,20 @@ def show_user_interface(user_password=None):
                     pinyin_style,
                     translation_mode
                 )
-                # 显示翻译结果
                 st.success("Translation completed!")
                 components.html(html_content, height=800, scrolling=True)
+            
+            # 添加下载按钮
+            col1, col2 = st.columns([1, 4])
+            with col1:
+                st.download_button(
+                    label="Download HTML",
+                    data=html_content,
+                    file_name="translation.html",
+                    mime="text/html",
+                    help="Download the translation as an HTML file"
+                )
                 
-                # 添加下载按钮
-                col1, col2 = st.columns([1, 4])
-                with col1:
-                    st.download_button(
-                        label="Download HTML",
-                        data=html_content,
-                        file_name="translation.html",
-                        mime="text/html",
-                        help="Download the translation as an HTML file"
-                    )
         except Exception as e:
             st.error(f"Translation error: {str(e)}")
 
@@ -318,31 +315,6 @@ def create_word_tooltip_html(processed_words, target_lang):
     
     final_html = template_content.replace('{{content}}', content_html)
     return final_html
-
-
-def display_interactive_chinese(text, password_manager, target_lang):
-    """Display interactive Chinese text with tooltips"""
-    # Process the text with the target language
-    processed_words = st.session_state.translator.process_chinese_text(text, target_lang)
-    
-    # 添加错误检查
-    if not processed_words:
-        st.error("Error processing text. No words were processed.")
-        return
-    
-    # Create HTML content
-    html_content = create_word_tooltip_html(processed_words, target_lang)
-    
-    # Show preview
-    components.html(html_content, height=800, scrolling=True)
-    
-    # Add download button
-    st.download_button(
-        label="Download HTML",
-        data=html_content,
-        file_name="translation.html",
-        mime="text/html"
-    )
 
 
 def create_interactive_html(processed_words, include_english):

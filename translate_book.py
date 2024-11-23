@@ -236,33 +236,17 @@ def process_text(file_path, include_english=True, second_language="vi", pinyin_s
 def process_interactive_chunk(chunk: str, index: int, executor: ThreadPoolExecutor, include_english: bool, second_language: str, pinyin_style: str = 'tone_marks') -> tuple:
     """Process chunk for interactive word-by-word translation"""
     try:
-        # 使用jieba进行分词
-        words = list(jieba.cut(chunk))
-        print(f"Segmented into {len(words)} words: {words}")
+        # 使用 translator 处理文本
+        if 'translator' not in st.session_state:
+            from translator import Translator
+            st.session_state.translator = Translator()
         
-        # 处理每个词
-        word_data = []
-        for word in words:
-            if any('\u4e00' <= char <= '\u9fff' for char in word):
-                # 获取拼音
-                pinyin = convert_to_pinyin(word, pinyin_style)
-                print(f"Word: {word}, Pinyin: {pinyin}")
-                
-                # 直接使用 translator 的结果
-                word_data.append({
-                    'word': word,
-                    'pinyin': pinyin,
-                    'translations': []  # translations 会在 translator.py 中添加
-                })
-            else:
-                # 非中文字符处理
-                word_data.append({
-                    'word': word,
-                    'pinyin': '',
-                    'translations': []
-                })
-
-        return (index, chunk, word_data)
+        # 直接使用 translator 的处理结果
+        processed_words = st.session_state.translator.process_chinese_text(chunk, second_language)
+        if not processed_words:
+            return (index, chunk, [])
+            
+        return (index, chunk, processed_words)
 
     except Exception as e:
         print(f"\nError processing interactive chunk {index}: {str(e)}")
@@ -295,7 +279,7 @@ def create_interactive_html_block(results: tuple, include_english: bool) -> str:
             # 处理非中文字符
             words_html.append(f'<span class="non-chinese">{data["word"]}</span>')
 
-    # 构建完整的HTML块（移除语音按钮但保留点击播放）
+    # 构建完整的HTML块（移除语音按钮但保留点播放）
     html = f'''
         <div class="translation-block">
             <div class="sentence-part interactive">
@@ -308,41 +292,40 @@ def create_interactive_html_block(results: tuple, include_english: bool) -> str:
     
     return html
 
-def translate_file(input_text: str, progress_callback=None, include_english=True, second_language="vi", pinyin_style='tone_marks', translation_mode="Standard Translation"):
+def translate_file(input_text: str, progress_callback=None, include_english=True, 
+                  second_language="vi", pinyin_style='tone_marks', 
+                  translation_mode="Standard Translation", processed_words=None):
     """Translate text with progress updates"""
-    print(f"Starting translation")
-    print(f"Translation mode: {translation_mode}")
-
     try:
-        # 直接使用输入的文本
         text = input_text.strip()
-
+        translation_content = ""  # 初始化变量
+        
         with open('template.html', 'r', encoding='utf-8') as template_file:
             html_content = template_file.read()
 
-        translation_content = ''
-
         if translation_mode == "Interactive Word-by-Word":
-            result = process_interactive_chunk(
-                text, 0, None, include_english, second_language, pinyin_style
+            # 直接使用传入的翻译结果，不再检查或重新翻译
+            if not processed_words:
+                raise ValueError("Interactive mode requires processed_words")
+                
+            # 使用翻译结果生成 HTML
+            translation_content = create_interactive_html_block(
+                (text, processed_words),
+                include_english
             )
-            _, _, word_data = result
-            translation_content += create_interactive_html_block(
-                (text, word_data), include_english)
         else:
+            # 标准翻译模式
             chunks = split_sentence(text)
             total_chunks = len(chunks)
             chunks_processed = 0
 
             if progress_callback:
-                progress_callback(0)  # Start from 0%
+                progress_callback(0)
                 print(f"Total chunks: {total_chunks}")
 
             for chunk in chunks:
                 if progress_callback:
-                    # Calculate progress from 0% to 100%
                     current_progress = (chunks_processed / total_chunks) * 100
-                    # Print progress percentage and chunk number
                     print(f"Processing chunk {chunks_processed + 1}/{total_chunks} ({current_progress:.1f}%)")
                     progress_callback(current_progress)
 
@@ -361,8 +344,11 @@ def translate_file(input_text: str, progress_callback=None, include_english=True
                 
                 chunks_processed += 1
 
-        # 返回生成的 HTML
-        return html_content.replace('{{content}}', translation_content)
+        # 确保有内容后再替换
+        if translation_content:
+            return html_content.replace('{{content}}', translation_content)
+        else:
+            raise ValueError("No translation content generated")
 
     except Exception as e:
         print(f"Translation error: {str(e)}")
