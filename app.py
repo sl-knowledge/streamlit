@@ -13,6 +13,7 @@ import jieba
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import math
 from translator import Translator
+import plotly.graph_objects as go
 
 # Initialize password manager only when needed
 pm = None
@@ -40,6 +41,15 @@ def init_translator():
 def show_user_interface(user_password=None):
     if not init_password_manager():
         return
+
+    # Add logout button in top right corner
+    col1, col2 = st.columns([10, 1])
+    with col2:
+        if st.button("Logout"):
+            st.session_state.user_logged_in = False
+            st.session_state.current_user = None
+            st.session_state.is_admin = False
+            st.rerun()
 
     if user_password is None:
         user_password = st.text_input("Enter your access key", type="password")
@@ -149,7 +159,7 @@ def show_user_interface(user_password=None):
                 st.error(f"Error reading file: {str(e)}")
 
     else:  # Try Example
-        example_text = """第37届中国电影金鸡奖是2024年11月16日在中国厦门举行的中国电影颁奖礼[2]，该届颁奖礼由中国文学艺术界联合会、中国电影家协会与厦门市人民政府共同主办。2024年10月27日公布评委会名名单[3][4]，颁奖典礼主持人由电影频道主持人蓝羽与演员佟大为担任[5]。
+        example_text = """第37届中国电影金鸡奖是2024年11月16日在中国厦门举的中国电影颁奖礼[2]，该届颁奖礼由中国文学艺术界联合会、中国电影家协会与厦门市人民政府共同主办。2024年10月27日公布评委会名名单[3][4]，颁奖典礼主持人由电影频道主持人蓝羽与演员佟大为担任[5]。
 
 张艺执导的《第二十条》获最佳故事片奖，陈凯歌凭借《志愿军：雄兵出击》获得最佳导演，音、李庚希分别凭借《第二十条》和《我们一起太阳》获得最佳男主角奖[6]，李庚希亦成为中电影金鸡奖的第一位"00后"影后[7]。
 """
@@ -174,6 +184,49 @@ def show_user_interface(user_password=None):
             return
 
         try:
+            # Check usage limit before translation using Azure counting rules
+            chars_count = count_characters(text_input, include_english, second_language)
+            if not pm.check_usage_limit(st.session_state.current_user, chars_count):
+                daily_limit = pm.get_user_limit(st.session_state.current_user)
+                st.error(f"You have exceeded your daily translation limit ({daily_limit:,} characters). Please try again tomorrow.")
+                return
+            
+            # Track usage if translation succeeds
+            pm.track_usage(st.session_state.current_user, chars_count)
+            
+            # Show current usage with premium status
+            daily_usage = pm.get_daily_usage(st.session_state.current_user)
+            daily_limit = pm.get_user_limit(st.session_state.current_user)
+            
+            # Get user's tier
+            key_name = pm.get_key_name(st.session_state.current_user)
+            user_tier = pm.user_tiers.get(key_name, "default")
+            
+            if user_tier == "premium" or pm.is_admin(st.session_state.current_user):
+                st.markdown(
+                    f"""
+                    <div style="padding: 10px;">
+                        Today's usage: {daily_usage:,}/{daily_limit:,} characters 
+                        <span style="
+                            background: linear-gradient(45deg, #FFD700, #FFA500);
+                            -webkit-background-clip: text;
+                            -webkit-text-fill-color: transparent;
+                            font-weight: bold;
+                            padding: 0 10px;
+                            text-shadow: 0px 0px 10px rgba(255,215,0,0.3);
+                            border: 1px solid #FFD700;
+                            border-radius: 15px;
+                            margin-left: 10px;
+                        ">
+                            Premium Account
+                        </span>
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
+            else:
+                st.info(f"Today's usage: {daily_usage:,}/{daily_limit:,} characters")
+            
             if translation_mode == "Interactive Word-by-Word":
                 try:
                     progress_bar = st.progress(0)
@@ -190,7 +243,12 @@ def show_user_interface(user_password=None):
                     
                     for paragraph in paragraphs:
                         if paragraph.strip():  # If paragraph is not empty
-                            words = jieba.lcut(paragraph)
+                            # Use jieba.tokenize to get position information
+                            tokens = list(jieba.tokenize(paragraph))
+                            # Sort tokens by their start position to maintain order
+                            tokens.sort(key=lambda x: x[1])
+                            # Extract just the words while maintaining order
+                            words = [token[0] for token in tokens]
                             all_words.extend(words)
                             paragraph_breaks.append(len(all_words))
                         else:
@@ -200,76 +258,60 @@ def show_user_interface(user_password=None):
                     
                     total_words = len(all_words)
                     
-                    # Step 2: Processing words in parallel
+                    # Step 2: Processing words in parallel while maintaining order
                     status_text.text("Step 2/3: Processing words in parallel...")
-                    processed_words = []
+                    processed_words = [None] * total_words  # Pre-allocate list with correct size
                     
                     # Function to process a batch of words
-                    def process_word_batch(word_batch, translator):
-                        batch_results = []
-                        for word in word_batch:
+                    def process_word_batch(word_batch, start_index, translator):
+                        results = []
+                        for i, word in enumerate(word_batch):
                             if word == '\n':
-                                # Preserve paragraph break
-                                batch_results.append({'word': '\n'})
+                                results.append((start_index + i, {'word': '\n'}))
                             elif word.strip():
                                 result = translator.process_chinese_text(
                                     word, 
                                     languages[second_language]
                                 )
                                 if result:
-                                    batch_results.extend(result)
-                        return batch_results
+                                    results.append((start_index + i, result[0]))
+                        return results
                     
-                    # Create batches while preserving paragraph structure
+                    # Create batches while preserving order
                     batch_size = 5
-                    word_batches = []
-                    current_batch = []
+                    batches = []
+                    for i in range(0, len(all_words), batch_size):
+                        batch = all_words[i:i + batch_size]
+                        batches.append((i, batch))
                     
-                    for word in all_words:
-                        if word == '\n':
-                            if current_batch:
-                                word_batches.append(current_batch)
-                                current_batch = []
-                            word_batches.append(['\n'])  # Paragraph break as its own batch
-                        else:
-                            current_batch.append(word)
-                            if len(current_batch) >= batch_size:
-                                word_batches.append(current_batch)
-                                current_batch = []
-                                
-                    if current_batch:  # Add any remaining words
-                        word_batches.append(current_batch)
-                        
-                    total_batches = len(word_batches)
-                    
-                    # Process batches in parallel using ThreadPoolExecutor
+                    # Process batches in parallel
                     with ThreadPoolExecutor(max_workers=3) as executor:
-                        # Create a partial function with the translator
-                        process_batch = lambda batch: process_word_batch(batch, translator)
+                        futures = []
+                        for start_idx, batch in batches:
+                            future = executor.submit(
+                                process_word_batch, 
+                                batch,
+                                start_idx,
+                                translator
+                            )
+                            futures.append(future)
                         
-                        future_to_batch = {
-                            executor.submit(process_batch, batch): i 
-                            for i, batch in enumerate(word_batches)
-                        }
-                        
-                        completed_batches = 0
-                        for future in as_completed(future_to_batch):
-                            batch_index = future_to_batch[future]
+                        completed = 0
+                        for future in as_completed(futures):
                             try:
-                                batch_results = future.result()
-                                processed_words.extend(batch_results)
+                                # Get results and place them in the correct positions
+                                for idx, result in future.result():
+                                    processed_words[idx] = result
                                 
-                                # Update progress
-                                completed_batches += 1
-                                current_progress = 10 + (completed_batches / total_batches * 60)
-                                progress_bar.progress(int(current_progress))
+                                completed += 1
+                                progress = 10 + (completed / len(batches) * 60)
+                                progress_bar.progress(int(progress))
                                 status_text.text(
                                     f"Step 2/3: Processing words... "
-                                    f"(Batch {completed_batches}/{total_batches}, "
-                                    f"~{completed_batches * batch_size}/{total_words} words)"
+                                    f"(Batch {completed}/{len(batches)})"
                                 )
                             except Exception as e:
-                                st.error(f"Error processing batch {batch_index}: {str(e)}")
+                                st.error(f"Error processing batch: {str(e)}")
                     
                     # Step 3: Generating HTML
                     status_text.text("Step 3/3: Generating interactive HTML...")
@@ -451,10 +493,100 @@ def create_interactive_html(processed_words, include_english):
     return html_content.replace('{{content}}', translation_content)
 
 
-def main():
-    st.set_page_config(page_title="Translator App", layout="centered")
+def show_admin_interface():
+    """Show admin interface with usage statistics"""
+    st.title("Admin Dashboard")
+    
+    # Initialize password manager first
+    if not init_password_manager():
+        st.error("Failed to initialize password manager")
+        return
+        
+    # Get usage statistics
+    try:
+        stats = pm.get_usage_stats()
+        
+        # Display overall statistics
+        st.header("Overall Statistics")
+        col1, col2 = st.columns(2)
+        with col1:
+            st.metric("Total Users", stats['total_users'])
+        with col2:
+            total_chars = sum(stats['daily_stats'].values())
+            st.metric("Total Characters Translated", f"{total_chars:,}")
+        
+        # Daily usage graph
+        st.header("Daily Usage")
+        daily_df = pd.DataFrame(
+            list(stats['daily_stats'].items()),
+            columns=['Date', 'Characters']
+        )
+        if not daily_df.empty:
+            fig = go.Figure(data=[
+                go.Bar(
+                    x=daily_df['Date'],
+                    y=daily_df['Characters'],
+                    name='Daily Usage'
+                )
+            ])
+            fig.update_layout(
+                title='Daily Translation Usage',
+                xaxis_title='Date',
+                yaxis_title='Characters Translated'
+            )
+            st.plotly_chart(fig)
+        
+        # User statistics
+        st.header("User Statistics")
+        for user, dates in stats['user_stats'].items():
+            with st.expander(f"User: {user}"):
+                user_df = pd.DataFrame(
+                    list(dates.items()),
+                    columns=['Date', 'Characters']
+                )
+                st.dataframe(user_df)
+                
+                # User usage graph
+                fig = go.Figure(data=[
+                    go.Scatter(
+                        x=user_df['Date'],
+                        y=user_df['Characters'],
+                        mode='lines+markers',
+                        name='Usage'
+                    )
+                ])
+                fig.update_layout(
+                    title=f'Usage Over Time - {user}',
+                    xaxis_title='Date',
+                    yaxis_title='Characters'
+                )
+                st.plotly_chart(fig)
+    except Exception as e:
+        st.error(f"Error loading statistics: {str(e)}")
 
-    # 保持文本区域的样式
+
+def count_characters(text, include_english=True, second_language=None):
+    """Count characters according to Azure Translator rules"""
+    # Remove spaces and newlines
+    text = text.replace(" ", "").replace("\n", "")
+    # Count base characters
+    char_count = len(text)
+    
+    # If both English and another language are selected, count twice
+    if include_english and second_language and second_language != "English":
+        char_count *= 2
+        
+    return char_count
+
+
+def main():
+    st.set_page_config(
+        page_title="Translator App", 
+        layout="centered",
+        initial_sidebar_state="collapsed"
+    )
+
+    # Style configurations...
     st.markdown("""
     <style>
     .stTextArea textarea {
@@ -471,33 +603,78 @@ def main():
         border-color: #1E90FF !important;
         box-shadow: 0 0 0 1px #1E90FF !important;
     }
+    
+    /* Hide hamburger menu and footer by default */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    
+    /* Hide sidebar by default */
+    section[data-testid="stSidebar"] {
+        visibility: hidden;
+        width: 0px;
+    }
+    
+    /* Show sidebar when expanded */
+    section[data-testid="stSidebar"][aria-expanded="true"] {
+        visibility: visible;
+        width: 300px;
+    }
+    
+    /* Show sidebar toggle (hamburger menu) on hover */
+    .css-1rs6os {
+        visibility: visible;
+        opacity: 0.1;
+    }
+    .css-1rs6os:hover {
+        opacity: 1;
+    }
     </style>
     """, unsafe_allow_html=True)
 
-    # 初始化 translator
+    # Initialize translator
     if 'translator' not in st.session_state:
         from translator import Translator
         st.session_state.translator = Translator()
 
-    # 简化登录逻辑
+    # Add admin login to sidebar
+    with st.sidebar:
+        st.title("Admin Access")
+        admin_password = st.text_input("Enter admin key", type="password", key="admin_key")
+        if st.button("Login as Admin"):
+            if init_password_manager():
+                if pm.is_admin(admin_password):
+                    st.session_state.user_logged_in = True
+                    st.session_state.current_user = admin_password
+                    st.session_state.is_admin = True
+                    st.rerun()
+                else:
+                    st.sidebar.error("Invalid admin key")
+
+    # Main area for user login
     if not st.session_state.get('user_logged_in', False):
-        user_password = st.text_input("Enter your access key", type="password")
+        st.title("Chinese Text Translator")
+        user_password = st.text_input("Enter your access key", type="password", key="user_key")
         if st.button("Login"):
             if init_password_manager():
-                if pm.check_password(user_password):
+                if pm.check_password(user_password) and not pm.is_admin(user_password):
                     st.session_state.user_logged_in = True
                     st.session_state.current_user = user_password
+                    st.session_state.is_admin = False
                     st.rerun()
                 else:
                     st.error("Invalid access key")
     else:
-        col1, col2 = st.columns([10, 1])
-        with col2:
-            if st.button("Logout"):
-                st.session_state.user_logged_in = False
-                st.session_state.current_user = None
-                st.rerun()
-        show_user_interface(st.session_state.current_user)
+        # Show logout button in sidebar only for admin
+        if st.session_state.get('is_admin', False):
+            with st.sidebar:
+                if st.button("Logout"):
+                    st.session_state.user_logged_in = False
+                    st.session_state.current_user = None
+                    st.session_state.is_admin = False
+                    st.rerun()
+            show_admin_interface()
+        else:
+            show_user_interface(st.session_state.current_user)
 
 
 if __name__ == "__main__":

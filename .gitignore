@@ -88,3 +88,33 @@ docker-compose.override.yml
 *.pid
 *.seed
 *.pid.lock
+
+# VS Code and Git Extensions
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.history/
+.vsls.json
+*.code-workspace
+
+# Git Extension specific
+.gitlens/
+.git-blame-ignore-revs
+.githistory/
+.gitgraph/
+
+# Local History Extension
+.history/
+.lh/
+
+# Comparison backups
+*.orig
+*.bak
+*.old
+*_BACKUP_*
+*_BASE_*
+*_LOCAL_*
+*_REMOTE_*
+*.diff
