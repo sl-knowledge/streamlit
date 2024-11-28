@@ -54,6 +54,11 @@ class Translator:
         location = self.azure_config['region']
         key = self.azure_config['key']
         
+        # Debug logging
+        print(f"Endpoint: {endpoint}")
+        print(f"Location: {location}")
+        print(f"Key exists: {bool(key)}")
+        
         path = '/translate'
         constructed_url = endpoint + path
         
@@ -75,11 +80,39 @@ class Translator:
         }
         
         try:
+            # Make the request
             response = requests.post(constructed_url, params=params, headers=headers, json=body)
-            response.raise_for_status()
-            translation = response.json()[0]['translations'][0]['text']
-            print(f"Azure translated '{text}' to '{translation}'")
-            return translation
+            response.raise_for_status()  # This will raise an exception for bad status codes
+            
+            # Debug logging
+            print(f"Response status: {response.status_code}")
+            print(f"Response content: {response.text}")
+            
+            # Parse response with proper error checking
+            response_json = response.json()
+            if not response_json or not isinstance(response_json, list) or len(response_json) == 0:
+                print("Invalid response format")
+                return ""
+            
+            translations = response_json[0].get('translations', [])
+            if not translations:
+                print("No translations in response")
+                return ""
+            
+            translation = translations[0].get('text', '')
+            if translation:
+                print(f"Azure translated '{text}' to '{translation}'")
+                return translation
+            else:
+                print("No translated text found")
+                return ""
+            
+        except requests.exceptions.RequestException as e:
+            print(f"Request error: {str(e)}")
+            return ""
+        except (KeyError, IndexError, ValueError) as e:
+            print(f"Response parsing error: {str(e)}")
+            return ""
         except Exception as e:
             print(f"Azure translation error: {str(e)}")
             return ""
