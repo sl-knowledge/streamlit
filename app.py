@@ -611,23 +611,6 @@ def count_characters(text, include_english=True, second_language=None):
     return char_count
 
 
-def restrict_bot(update, context):
-    # Get the chat ID
-    chat_id = update.effective_chat.id
-    
-    # Get authorized group ID from secrets
-    authorized_group_id = st.secrets.get("telegram_group_id")
-    
-    # Check if this is your authorized group
-    if chat_id != authorized_group_id:  # Using group ID from secrets
-        # Leave any unauthorized group
-        context.bot.leave_chat(chat_id)
-        return
-    
-    # Process messages only from authorized group
-    # Your bot logic here
-
-
 def main():
     st.set_page_config(
         page_title="Translator App", 
