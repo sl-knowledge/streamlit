@@ -617,6 +617,9 @@ def main():
         initial_sidebar_state="collapsed"
     )
 
+    # Get URL parameters using st.query_params
+    url_key = st.query_params.get('key', None)
+
     # Style configurations...
     st.markdown("""
     <style>
@@ -681,8 +684,19 @@ def main():
                 else:
                     st.sidebar.error("Invalid admin key")
 
-    # Main area for user login
+    # Check if user is already logged in
     if not st.session_state.get('user_logged_in', False):
+        # Try to login with URL key if present
+        if url_key and init_password_manager():
+            if pm.check_password(url_key) and not pm.is_admin(url_key):
+                st.session_state.user_logged_in = True
+                st.session_state.current_user = url_key
+                st.session_state.is_admin = False
+                st.rerun()
+            else:
+                st.error("Invalid access key in URL")
+                
+        # Show regular login form if no URL key or invalid URL key
         st.title("Chinese Text Translator")
         user_password = st.text_input("Enter your access key", type="password", key="user_key")
         if st.button("Login"):
