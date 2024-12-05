@@ -266,15 +266,30 @@ def show_user_interface(user_password=None):
                     def process_word_batch(word_batch, start_index, translator):
                         results = []
                         for i, word in enumerate(word_batch):
-                            if word == '\n':
-                                results.append((start_index + i, {'word': '\n'}))
-                            elif word.strip():
-                                result = translator.process_chinese_text(
-                                    word, 
-                                    languages[second_language]
-                                )
-                                if result:
-                                    results.append((start_index + i, result[0]))
+                            try:
+                                if word == '\n':
+                                    results.append((start_index + i, {'word': '\n'}))
+                                elif word.strip():
+                                    result = translator.process_chinese_text(
+                                        word, 
+                                        languages[second_language]
+                                    )
+                                    # Create a properly structured dictionary even if translation fails
+                                    word_dict = {
+                                        'word': word,
+                                        'pinyin': '',
+                                        'translations': []
+                                    }
+                                    if result and len(result) > 0:
+                                        word_dict.update(result[0])  # Only update if we have valid results
+                                    results.append((start_index + i, word_dict))
+                                else:
+                                    # Handle empty strings
+                                    results.append((start_index + i, {'word': '', 'pinyin': '', 'translations': []}))
+                            except Exception as e:
+                                print(f"Error processing word '{word}': {str(e)}")
+                                # Always return a valid dictionary structure
+                                results.append((start_index + i, {'word': word, 'pinyin': '', 'translations': []}))
                         return results
                     
                     # Create batches while preserving order
@@ -317,6 +332,10 @@ def show_user_interface(user_password=None):
                     status_text.text("Step 3/3: Generating interactive HTML...")
                     progress_bar.progress(80)
                     
+                    # Add error checking before generating HTML
+                    if any(word is None for word in processed_words):
+                        raise ValueError("Some words failed to process")
+                    
                     html_content = translate_file(
                         text_input,
                         None,
@@ -324,7 +343,7 @@ def show_user_interface(user_password=None):
                         languages[second_language],
                         pinyin_style,
                         translation_mode,
-                        processed_words=processed_words
+                        processed_words=[word for word in processed_words if word is not None]  # Filter None values
                     )
                     
                     # Complete
@@ -481,16 +500,28 @@ def create_word_tooltip_html(processed_words, target_lang):
 
 def create_interactive_html(processed_words, include_english):
     """Create HTML content for interactive translation"""
-    with open('template.html', 'r', encoding='utf-8') as template_file:
-        html_content = template_file.read()
-    
-    # 使用从 translate_book.py 导入的函数
-    translation_content = create_interactive_html_block(
-        (None, processed_words),  # 传入 None 作为 chunk，因为我们已经有了处理好的词
-        include_english
-    )
-    
-    return html_content.replace('{{content}}', translation_content)
+    try:
+        with open('template.html', 'r', encoding='utf-8') as template_file:
+            html_content = template_file.read()
+        
+        # Add error checking for processed_words
+        if processed_words is None:
+            raise ValueError("processed_words cannot be None")
+            
+        # Create translation content with error handling
+        translation_content = create_interactive_html_block(
+            (None, [word for word in processed_words if word is not None]),  # Filter out None values
+            include_english
+        )
+        
+        if translation_content is None:
+            raise ValueError("Failed to generate translation content")
+            
+        return html_content.replace('{{content}}', translation_content)
+        
+    except Exception as e:
+        st.error(f"Error creating interactive HTML: {str(e)}")
+        return None
 
 
 def show_admin_interface():
