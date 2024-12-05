@@ -14,7 +14,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import math
 from translator import Translator
 import plotly.graph_objects as go
-from telegram.ext import Filters
+
 
 # Initialize password manager only when needed
 pm = None
