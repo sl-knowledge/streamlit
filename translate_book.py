@@ -93,7 +93,7 @@ def translate_text(text, target_lang):
     
     try:
         translation = st.session_state.translator.translate_text(text, target_lang)
-        print(f"Azure translated '{text}' to '{translation}'")
+        # print(f"Azure translated '{text}' to '{translation}'")  # Commented out for debugging
         return translation
     except Exception as e:
         print(f"Translation error: {str(e)}")
@@ -110,12 +110,12 @@ def process_chunk(chunk: str, index: int, executor: ThreadPoolExecutor, include_
         if include_english:
             english = translate_text(chunk, 'en')
             if english:
-                print(f"English translation: {english}")
+                # print(f"English translation: {english}")  # Commented out for debugging
             translations.append(english or "[Translation Error]")
 
         second_trans = translate_text(chunk, second_language)
         if second_trans:
-            print(f"Second language translation: {second_trans}")
+            # print(f"Second language translation: {second_trans}")  # Commented out for debugging
         translations.append(second_trans or "[Translation Error]")
 
         return (index, chunk, pinyin, *translations)

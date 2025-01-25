@@ -35,14 +35,14 @@ class Translator:
         # Check cache first
         if cache_key in self.translated_words:
             translation = self.translated_words[cache_key]
-            print(f"[Cache] '{text}' -> '{translation}'")
+            # print(f"[Cache] '{text}' -> '{translation}'")  # Commented out for debugging
             return translation
         
         try:
             # Only call Azure if not in cache
             translation = self._call_azure_translate(text, target_lang)  # Actual API call
             self.translated_words[cache_key] = translation  # Update cache
-            print(f"[Azure] '{text}' -> '{translation}'")
+            # print(f"[Azure] '{text}' -> '{translation}'")  # Commented out for debugging
             return translation
         except Exception as e:
             print(f"Translation error: {str(e)}")
@@ -55,9 +55,9 @@ class Translator:
         key = self.azure_config['key']
         
         # Debug logging
-        print(f"Endpoint: {endpoint}")
-        print(f"Location: {location}")
-        print(f"Key exists: {bool(key)}")
+        # print(f"Endpoint: {endpoint}")  # Commented out for debugging
+        # print(f"Location: {location}")  # Commented out for debugging
+        # print(f"Key exists: {bool(key)}")  # Commented out for debugging
         
         path = '/translate'
         constructed_url = endpoint + path
@@ -85,8 +85,8 @@ class Translator:
             response.raise_for_status()  # This will raise an exception for bad status codes
             
             # Debug logging
-            print(f"Response status: {response.status_code}")
-            print(f"Response content: {response.text}")
+            # print(f"Response status: {response.status_code}")  # Commented out for debugging
+            # print(f"Response content: {response.text}")  # Commented out for debugging
             
             # Parse response with proper error checking
             response_json = response.json()
@@ -101,10 +101,10 @@ class Translator:
             
             translation = translations[0].get('text', '')
             if translation:
-                print(f"Azure translated '{text}' to '{translation}'")
+                # print(f"Azure translated '{text}' to '{translation}'")  # Commented out for debugging
                 return translation
             else:
-                print("No translated text found")
+                # print("No translated text found")  # Commented out for debugging
                 return ""
             
         except requests.exceptions.RequestException as e:
