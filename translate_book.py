@@ -111,12 +111,12 @@ def process_chunk(chunk: str, index: int, executor: ThreadPoolExecutor, include_
             english = translate_text(chunk, 'en')
             if english:
                 # print(f"English translation: {english}")  # Commented out for debugging
-            translations.append(english or "[Translation Error]")
+                translations.append(english or "[Translation Error]")
 
         second_trans = translate_text(chunk, second_language)
         if second_trans:
             # print(f"Second language translation: {second_trans}")  # Commented out for debugging
-        translations.append(second_trans or "[Translation Error]")
+            translations.append(second_trans or "[Translation Error]")
 
         return (index, chunk, pinyin, *translations)
 
